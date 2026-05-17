@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Menu, X, Github, ArrowRight } from 'lucide-react';
+import { Menu, X, Github, ArrowRight, Instagram, Linkedin } from 'lucide-react';
 import ParticleField from '@/sections/ParticleField';
 
 const projects = [
@@ -265,6 +265,7 @@ export default function HomePage() {
           <div>
             <h3 className="text-[#f0f0f0] text-lg font-normal mb-1">IoT Vision <span className="text-[#0073e6] text-xs uppercase tracking-wider">3D</span></h3>
             <p className="text-xs text-white/50 font-light">Plataforma educacional para IoT</p>
+            <p className="text-xs text-white/50 font-light mt-3">Desenvolvido por Beatriz de Abreu, Cauê Valverde e Gustavo de Jesus</p>
           </div>
           <div>
             <p className="label-text mb-4">Plataforma</p>
@@ -291,8 +292,43 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+        <div className="max-w-[1400px] mx-auto grid grid-cols-1 sm:grid-cols-3 gap-6 mt-10">
+          <div>
+            <div className="flex items-center gap-2 mb-4 text-white/80">
+              <Instagram className="w-4 h-4" />
+              <p className="label-text">Instagram</p>
+            </div>
+            <div className="space-y-2 text-sm text-[#e1e1e1] font-light">
+              <a href="https://www.instagram.com/beabreuz?igsh=b3J4NTNmdjIwM3dx" target="_blank" rel="noreferrer" className="block hover:text-[#0073e6] transition-colors">Beatriz de Abreu</a>
+              <a href="https://www.instagram.com/cauekonce?igsh=ZHJqMHg0bnNobG84&utm_source=qr" target="_blank" rel="noreferrer" className="block hover:text-[#0073e6] transition-colors">Cauê Valverde</a>
+              <a href="https://www.instagram.com/guszlk71?igsh=d3N2dHVzMnN3Z2F4" target="_blank" rel="noreferrer" className="block hover:text-[#0073e6] transition-colors">Gustavo de Jesus</a>
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-4 text-white/80">
+              <Github className="w-4 h-4" />
+              <p className="label-text">GitHub</p>
+            </div>
+            <div className="space-y-2 text-sm text-[#e1e1e1] font-light">
+              <a href="https://github.com/Biabreuz" target="_blank" rel="noreferrer" className="block hover:text-[#0073e6] transition-colors">Beatriz de Abreu</a>
+              <a href="https://github.com/CaueKonceRamos" target="_blank" rel="noreferrer" className="block hover:text-[#0073e6] transition-colors">Cauê Valverde</a>
+              <a href="https://github.com" target="_blank" rel="noreferrer" className="block hover:text-[#0073e6] transition-colors">Gustavo de Jesus</a>
+            </div>
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-4 text-white/80">
+              <Linkedin className="w-4 h-4" />
+              <p className="label-text">LinkedIn</p>
+            </div>
+            <div className="space-y-2 text-sm text-[#e1e1e1] font-light">
+              <a href="https://www.linkedin.com/in/beatriz-de-abreu-4a1450232?trk=people-also-viewed_member-name" target="_blank" rel="noreferrer" className="block hover:text-[#0073e6] transition-colors">Beatriz de Abreu</a>
+              <a href="https://br.linkedin.com/in/cau%C3%AA-valverde-3480a42a5" target="_blank" rel="noreferrer" className="block hover:text-[#0073e6] transition-colors">Cauê Valverde</a>
+              <a href="https://br.linkedin.com/in/gustavo-de-jesus-d-800595297?utm_source=share&utm_medium=member_mweb&utm_campaign=share_via&utm_content=profile" target="_blank" rel="noreferrer" className="block hover:text-[#0073e6] transition-colors">Gustavo de Jesus</a>
+            </div>
+          </div>
+        </div>
         <div className="max-w-[1400px] mx-auto mt-12 pt-6 border-t border-white/[0.06] flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-[11px] text-white/50">2025 IoT Vision 3D</p>
+          <p className="text-[11px] text-white/50">2026 IoT Vision 3D</p>
           <div className="flex items-center gap-4">
             <Github className="w-[18px] h-[18px] text-white/50 hover:text-[#0073e6] transition-colors cursor-pointer" />
           </div>
