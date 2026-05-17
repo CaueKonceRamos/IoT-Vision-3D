@@ -1,0 +1,164 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 0 0% 94%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 94%;
+    --popover: 0 0% 7%;
+    --popover-foreground: 0 0% 94%;
+    --primary: 210 100% 45%;
+    --primary-foreground: 0 0% 4%;
+    --secondary: 0 0% 10%;
+    --secondary-foreground: 0 0% 94%;
+    --muted: 0 0% 10%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 10%;
+    --accent-foreground: 0 0% 94%;
+    --destructive: 0 100% 63%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 100% / 0.08;
+    --input: 0 0% 100% / 0.05;
+    --ring: 210 100% 45%;
+    --radius: 0.5rem;
+
+    --dark: #0a0a0a;
+    --charcoal: #121212;
+    --surface: #1a1a1a;
+    --mist: #f0f0f0;
+    --ice: #e1e1e1;
+    --muted-color: rgba(255,255,255,0.5);
+    --azure: #0073e6;
+    --azure-hover: #005bb5;
+    --azure-glow: rgba(0,115,230,0.15);
+    --cyan: #00d4ff;
+    --emerald: #00ff88;
+    --amber: #ffaa00;
+    --red-accent: #ff4444;
+    --glass: rgba(255,255,255,0.06);
+    --glass-border: rgba(255,255,255,0.08);
+    --hairline: rgba(255,255,255,0.06);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--dark);
+    color: var(--mist);
+    font-family: 'Inter', sans-serif;
+    overflow-x: hidden;
+  }
+
+  ::selection {
+    background-color: var(--azure);
+    color: var(--dark);
+  }
+
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--dark);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.2);
+  }
+}
+
+@layer components {
+  .font-mono-data {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .glass-card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+  }
+
+  .panel {
+    background: var(--charcoal);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 8px;
+  }
+
+  .btn-primary {
+    background-color: var(--azure);
+    color: var(--dark);
+    padding: 8px 20px;
+    border-radius: 6px;
+    font-weight: 400;
+    transition: background-color 200ms ease;
+  }
+
+  .btn-primary:hover {
+    background-color: var(--azure-hover);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--mist);
+    padding: 8px 20px;
+    border-radius: 6px;
+    transition: all 200ms ease;
+  }
+
+  .btn-secondary:hover {
+    border-color: rgba(255,255,255,0.14);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted-color);
+    transition: all 200ms ease;
+  }
+
+  .btn-ghost:hover {
+    color: var(--ice);
+    background: rgba(255,255,255,0.04);
+  }
+
+  .label-text {
+    font-size: 11px;
+    font-weight: 300;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--muted-color);
+  }
+
+  .scanline-overlay {
+    background: repeating-linear-gradient(
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.15) 2px,
+      rgba(0,0,0,0.15) 4px
+    );
+    pointer-events: none;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
