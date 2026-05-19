@@ -165,6 +165,8 @@ export default function CircuitEditorView() {
   const [expandedCategory, setExpandedCategory] = useState<string>('Eletronica Basica');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('saved');
   const [codeTemplate, setCodeTemplate] = useState<string>('');
+  const [connectingMode, setConnectingMode] = useState(false);
+  const [firstConnectionId, setFirstConnectionId] = useState<string | null>(null);
   const isPanning = useRef(false);
   const lastPan = useRef({ x: 0, y: 0 });
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -405,6 +407,32 @@ export default function CircuitEditorView() {
       const size = c.type === 'arduino' || c.type === 'esp32' || c.type === 'raspberry' ? 60 : 40;
       return Math.abs(c.x - pos.x) < size / 2 && Math.abs(c.y - pos.y) < size / 2;
     });
+
+    // Handle connection mode
+    if (connectingMode) {
+      if (!clicked) return; // Must click on a component
+      
+      if (!firstConnectionId) {
+        // First component selected
+        setFirstConnectionId(clicked.id);
+        setSelectedId(clicked.id);
+      } else if (clicked.id !== firstConnectionId) {
+        // Second component selected - create wire
+        const newWire: Wire = {
+          id: Date.now().toString(),
+          from: firstConnectionId,
+          to: clicked.id,
+          color: ['#0073e6', '#00d4ff', '#00ff88', '#ffaa00'][Math.floor(Math.random() * 4)],
+        };
+        setWires((prev) => [...prev, newWire]);
+        toast.success(`Conexão criada entre componentes!`);
+        setConnectingMode(false);
+        setFirstConnectionId(null);
+        setSelectedId(null);
+      }
+      return;
+    }
+
     setSelectedId(clicked ? clicked.id : null);
   };
 
@@ -468,15 +496,18 @@ export default function CircuitEditorView() {
 
   const addWire = () => {
     if (components.length < 2) return;
-    const from = components[Math.floor(Math.random() * components.length)];
-    const to = components[Math.floor(Math.random() * components.length)];
-    if (from.id !== to.id) {
-      setWires((prev) => [...prev, {
-        id: Date.now().toString(),
-        from: from.id,
-        to: to.id,
-        color: ['#0073e6', '#00d4ff', '#00ff88', '#ffaa00'][Math.floor(Math.random() * 4)],
-      }]);
+    if (connectingMode) {
+      // Cancel connection mode
+      setConnectingMode(false);
+      setFirstConnectionId(null);
+      setSelectedId(null);
+      toast.info('Modo de conexão cancelado');
+    } else {
+      // Enter connection mode
+      setConnectingMode(true);
+      setFirstConnectionId(null);
+      setSelectedId(null);
+      toast.info('Clique em dois componentes para conectá-los');
     }
   };
 
@@ -630,9 +661,14 @@ export default function CircuitEditorView() {
             Clique no canvas para colocar o componente
           </div>
         )}
+        {connectingMode && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-[#121212] border border-[#00ff88]/30 rounded-lg px-4 py-2 text-xs text-[#00ff88]">
+            {firstConnectionId ? 'Clique no segundo componente' : 'Clique no primeiro componente'}
+          </div>
+        )}
         <canvas
           ref={canvasRef}
-          className={`w-full h-full ${placingType ? 'cursor-crosshair' : dragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
+          className={`w-full h-full ${placingType ? 'cursor-crosshair' : connectingMode ? 'cursor-cell' : dragging ? 'cursor-grabbing' : 'cursor-pointer'}`}
           onClick={handleCanvasClick}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -653,7 +689,12 @@ export default function CircuitEditorView() {
           <button onClick={handleSaveProject} className="btn-secondary text-xs px-3 py-1.5 rounded">{saveStatus === 'saving' ? 'Salvando...' : 'Salvar 2D'}</button>
           <button onClick={saveDiagram} className="btn-secondary text-xs px-3 py-1.5 rounded">Diagram.png</button>
           <button onClick={downloadHistoryPdf} className="btn-secondary text-xs px-3 py-1.5 rounded">Historico.pdf</button>
-          <button onClick={addWire} className="btn-secondary text-xs px-3 py-1.5 rounded">Conectar</button>
+          <button 
+            onClick={addWire} 
+            className={`text-xs px-3 py-1.5 rounded transition-colors ${connectingMode ? 'bg-[#ff4444] text-[#0a0a0a] hover:bg-[#ff6666]' : 'btn-secondary'}`}
+          >
+            {connectingMode ? 'Cancelar Conexão' : 'Conectar'}
+          </button>
           {tutorialSteps.length > 0 && (
             <button onClick={() => setShowTutorial(true)} className="btn-secondary text-xs px-3 py-1.5 rounded">Tutorial</button>
           )}
@@ -712,55 +753,39 @@ export default function CircuitEditorView() {
       </div>
 
       {/* Item Sidebar */}
-      <div className="hidden xl:flex w-[320px] flex-col bg-[#121212] border-l border-white/[0.08] overflow-y-auto">
-        <div className="p-5 border-b border-white/[0.08]">
-          <h2 className="text-lg font-semibold text-[#f0f0f0]">Configuração do Item</h2>
-          <p className="text-sm text-white/50 mt-1">Selecione um componente para ver código, templates e automações.</p>
+      <div className="hidden xl:flex w-[280px] flex-col bg-[#121212] border-l border-white/[0.08] overflow-y-auto">
+        <div className="p-4 border-b border-white/[0.08]">
+          <h2 className="text-sm font-semibold text-[#f0f0f0]">Componente</h2>
         </div>
-        <div className="flex gap-1 p-3 border-b border-white/[0.06]">
+        <div className="flex gap-1 p-2 border-b border-white/[0.06]">
           {(['overview', 'code', 'templates'] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`flex-1 text-xs uppercase tracking-[0.2em] py-2 rounded-2xl transition ${activeTab === tab ? 'bg-[#0073e6]/15 text-[#f0f0f0]' : 'text-white/40 hover:text-white hover:bg-white/[0.03]'}`}
+              className={`flex-1 text-[10px] uppercase tracking-[0.15em] py-1.5 rounded-2xl transition ${activeTab === tab ? 'bg-[#0073e6]/15 text-[#f0f0f0]' : 'text-white/40 hover:text-white hover:bg-white/[0.03]'}`}
             >
               {tab === 'overview' ? 'Visão' : tab === 'code' ? 'Código' : 'Templates'}
             </button>
           ))}
         </div>
-        <div className="p-5 space-y-5">
+        <div className="p-4 space-y-4">
           {!selectedComponent ? (
-            <div className="rounded-3xl bg-[#0f172a] p-5 text-center text-sm text-white/50">
-              Selecione um item no canvas para editar o código e ver conexões.
+            <div className="rounded-2xl bg-[#0f172a] p-4 text-center text-xs text-white/50">
+              Selecione um componente para editar.
             </div>
           ) : (
             <> 
               {activeTab === 'overview' && (
-                <div className="space-y-4">
-                  <div className="rounded-3xl bg-[#0f172a] p-4">
-                    <p className="text-[11px] text-white/40 uppercase tracking-[0.2em] mb-2">Componente</p>
+                <div className="space-y-3">
+                  <div className="rounded-3xl bg-[#0f172a] p-3">
+                    <p className="text-[10px] text-white/40 uppercase tracking-[0.2em] mb-2">Componente</p>
                     <p className="text-sm text-[#f0f0f0] font-semibold">{selectedComponent.label}</p>
-                    <p className="text-[11px] text-white/50 mt-2">Tipo: {selectedComponent.type}</p>
+                    <p className="text-[10px] text-white/50 mt-1">Tipo: {selectedComponent.type}</p>
                   </div>
-                  <div className="rounded-3xl bg-[#0f172a] p-4 grid gap-3">
+                  <div className="rounded-3xl bg-[#0f172a] p-3">
                     <div className="flex items-center justify-between text-sm text-white/60">
-                      <span>Conexões</span>
-                      <span>{selectedConnections.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm text-white/60">
-                      <span>Status</span>
-                      <span className="text-[#00ff88]">Ativo</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm text-white/60">
-                      <span>Posição</span>
-                      <span>{selectedComponent.x}, {selectedComponent.y}</span>
-                    </div>
-                  </div>
-                  <div className="rounded-3xl bg-[#0f172a] p-4">
-                    <p className="text-[11px] text-white/40 uppercase tracking-[0.2em] mb-2">Automações</p>
-                    <div className="space-y-2 text-sm text-white/60">
-                      <p>Quando acionado, aciona a saída correspondente.</p>
-                      <p>Regra padrão: sinal lógico direto para dispositivo de saída.</p>
+                      <span className="text-xs">Conexões</span>
+                      <span className="text-[#00ff88] font-semibold">{selectedConnections.length}</span>
                     </div>
                   </div>
                 </div>
