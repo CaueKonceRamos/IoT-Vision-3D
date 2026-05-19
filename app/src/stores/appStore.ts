@@ -46,7 +46,7 @@ const defaultClasses: ClassItem[] = [
 ];
 
 export const useAppStore = create<AppState>((set) => ({
-  activeView: '3d',
+  activeView: 'home',
   activeProject: null,
   isSimulating: false,
   sidebarCollapsed: false,

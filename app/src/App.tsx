@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/authStore';
 const HomePage = lazy(() => import('@/pages/HomePage'));
 const LoginPage = lazy(() => import('@/pages/LoginPage'));
 const DashboardLayout = lazy(() => import('@/pages/DashboardLayout'));
+const DashboardHomeView = lazy(() => import('@/views/DashboardHomeView'));
 const Workspace3DView = lazy(() => import('@/views/Workspace3DView'));
 const CircuitEditorView = lazy(() => import('@/views/CircuitEditorView'));
 const DataDashboardView = lazy(() => import('@/views/DataDashboardView'));
@@ -39,7 +40,7 @@ export default function App() {
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<LoginPage />} />
           <Route path="/dashboard" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
-            <Route index element={<Workspace3DView />} />
+            <Route index element={<DashboardHomeView />} />
             <Route path="workspace/3d" element={<Workspace3DView />} />
             <Route path="workspace/circuit" element={<CircuitEditorView />} />
             <Route path="workspace/data" element={<DataDashboardView />} />

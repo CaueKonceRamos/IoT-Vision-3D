@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback, type ElementType } from 'react';
+import { useRef, useState, useEffect, useCallback, useMemo, type ElementType } from 'react';
 import {
   Lightbulb, Zap, Cpu, Wifi, Thermometer, Droplets, Wind,
   Volume2, Monitor, Bluetooth, ChevronDown, Search, Trash2, Copy
@@ -153,6 +153,7 @@ export default function CircuitEditorView() {
   const [components, setComponents] = useState<CircuitComponent[]>([]);
   const [wires, setWires] = useState<Wire[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'overview' | 'code' | 'templates'>('overview');
   const [dragging, setDragging] = useState<string | null>(null);
   const [placingType, setPlacingType] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -163,6 +164,7 @@ export default function CircuitEditorView() {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [expandedCategory, setExpandedCategory] = useState<string>('Eletronica Basica');
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('saved');
+  const [codeTemplate, setCodeTemplate] = useState<string>('');
   const isPanning = useRef(false);
   const lastPan = useRef({ x: 0, y: 0 });
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -170,6 +172,58 @@ export default function CircuitEditorView() {
   const GRID_SIZE = 20;
 
   const snapToGrid = (val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE;
+
+  const selectedComponent = useMemo(
+    () => components.find((comp) => comp.id === selectedId) ?? null,
+    [components, selectedId],
+  );
+
+  const selectedConnections = useMemo(
+    () => wires.filter((wire) => wire.from === selectedId || wire.to === selectedId),
+    [wires, selectedId],
+  );
+
+  const componentCode = useMemo(() => {
+    if (!selectedComponent) return '';
+    switch (selectedComponent.type) {
+      case 'led':
+        return `// Código para ${selectedComponent.label}\nconst int ledPin = 13;\n\nvoid setup() {\n  pinMode(ledPin, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(ledPin, HIGH);\n  delay(500);\n  digitalWrite(ledPin, LOW);\n  delay(500);\n}`;
+      case 'button':
+        return `// Código para ${selectedComponent.label}\nconst int buttonPin = 2;\nconst int ledPin = 13;\n\nvoid setup() {\n  pinMode(buttonPin, INPUT_PULLUP);\n  pinMode(ledPin, OUTPUT);\n}\n\nvoid loop() {\n  int state = digitalRead(buttonPin);\n  digitalWrite(ledPin, state == LOW ? HIGH : LOW);\n}`;
+      case 'motion':
+        return `// Código para ${selectedComponent.label}\nconst int pirPin = 4;\nconst int ledPin = 13;\n\nvoid setup() {\n  pinMode(pirPin, INPUT);\n  pinMode(ledPin, OUTPUT);\n}\n\nvoid loop() {\n  int motion = digitalRead(pirPin);\n  digitalWrite(ledPin, motion ? HIGH : LOW);\n}`;
+      case 'temp':
+      case 'humidity':
+        return `// Código para ${selectedComponent.label}\n#include <DHT.h>\n#define DHTPIN 4\n#define DHTTYPE DHT11\nDHT dht(DHTPIN, DHTTYPE);\n\nvoid setup() {\n  Serial.begin(9600);\n  dht.begin();\n}\n\nvoid loop() {\n  float h = dht.readHumidity();\n  float t = dht.readTemperature();\n  Serial.print("Temp: ");\n  Serial.print(t);\n  Serial.print(" C | Umid: ");\n  Serial.print(h);\n  Serial.println(" %");\n  delay(2000);\n}`;
+      case 'servo':
+      case 'motor':
+        return `// Código para ${selectedComponent.label}\n#include <Servo.h>\nServo motor;\n\nvoid setup() {\n  motor.attach(9);\n}\n\nvoid loop() {\n  motor.write(0);\n  delay(1000);\n  motor.write(90);\n  delay(1000);\n}`;
+      case 'relay':
+        return `// Código para ${selectedComponent.label}\nconst int relayPin = 12;\n\nvoid setup() {\n  pinMode(relayPin, OUTPUT);\n}\n\nvoid loop() {\n  digitalWrite(relayPin, HIGH);\n  delay(1000);\n  digitalWrite(relayPin, LOW);\n  delay(1000);\n}`;
+      default:
+        return `// Código base para ${selectedComponent.label}\n// Customize o comportamento conforme o componente e a conexão.`;
+    }
+  }, [selectedComponent]);
+
+  const templateItems = [
+    {
+      title: 'Código base',
+      snippet: `// Template base\nvoid setup() {\n  // Inicialização do dispositivo\n}\n\nvoid loop() {\n  // Loop principal\n}`,
+    },
+    {
+      title: 'Automação simples',
+      snippet: `// Quando o sensor detectar movimento, aciona a saída\nif (motionDetected) {\n  digitalWrite(outputPin, HIGH);\n} else {\n  digitalWrite(outputPin, LOW);\n}`,
+    },
+    {
+      title: 'Envio IoT',
+      snippet: `// Envia leitura via WiFi\n// TODO: configurar credenciais e endpoint\nWiFi.begin(ssid, password);\n`,
+    },
+  ];
+
+  const applyTemplate = (snippet: string) => {
+    setCodeTemplate(snippet);
+    toast.success('Template aplicado ao item selecionado');
+  };
 
   useEffect(() => {
     if (!activeProject?.template) return;
@@ -655,6 +709,103 @@ export default function CircuitEditorView() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Item Sidebar */}
+      <div className="hidden xl:flex w-[320px] flex-col bg-[#121212] border-l border-white/[0.08] overflow-y-auto">
+        <div className="p-5 border-b border-white/[0.08]">
+          <h2 className="text-lg font-semibold text-[#f0f0f0]">Configuração do Item</h2>
+          <p className="text-sm text-white/50 mt-1">Selecione um componente para ver código, templates e automações.</p>
+        </div>
+        <div className="flex gap-1 p-3 border-b border-white/[0.06]">
+          {(['overview', 'code', 'templates'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex-1 text-xs uppercase tracking-[0.2em] py-2 rounded-2xl transition ${activeTab === tab ? 'bg-[#0073e6]/15 text-[#f0f0f0]' : 'text-white/40 hover:text-white hover:bg-white/[0.03]'}`}
+            >
+              {tab === 'overview' ? 'Visão' : tab === 'code' ? 'Código' : 'Templates'}
+            </button>
+          ))}
+        </div>
+        <div className="p-5 space-y-5">
+          {!selectedComponent ? (
+            <div className="rounded-3xl bg-[#0f172a] p-5 text-center text-sm text-white/50">
+              Selecione um item no canvas para editar o código e ver conexões.
+            </div>
+          ) : (
+            <> 
+              {activeTab === 'overview' && (
+                <div className="space-y-4">
+                  <div className="rounded-3xl bg-[#0f172a] p-4">
+                    <p className="text-[11px] text-white/40 uppercase tracking-[0.2em] mb-2">Componente</p>
+                    <p className="text-sm text-[#f0f0f0] font-semibold">{selectedComponent.label}</p>
+                    <p className="text-[11px] text-white/50 mt-2">Tipo: {selectedComponent.type}</p>
+                  </div>
+                  <div className="rounded-3xl bg-[#0f172a] p-4 grid gap-3">
+                    <div className="flex items-center justify-between text-sm text-white/60">
+                      <span>Conexões</span>
+                      <span>{selectedConnections.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-white/60">
+                      <span>Status</span>
+                      <span className="text-[#00ff88]">Ativo</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm text-white/60">
+                      <span>Posição</span>
+                      <span>{selectedComponent.x}, {selectedComponent.y}</span>
+                    </div>
+                  </div>
+                  <div className="rounded-3xl bg-[#0f172a] p-4">
+                    <p className="text-[11px] text-white/40 uppercase tracking-[0.2em] mb-2">Automações</p>
+                    <div className="space-y-2 text-sm text-white/60">
+                      <p>Quando acionado, aciona a saída correspondente.</p>
+                      <p>Regra padrão: sinal lógico direto para dispositivo de saída.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'code' && (
+                <div className="space-y-4">
+                  <div className="rounded-3xl bg-[#0f172a] p-4">
+                    <p className="text-[11px] text-white/40 uppercase tracking-[0.2em] mb-3">Editor de Código</p>
+                    <pre className="max-h-[320px] overflow-y-auto rounded-3xl bg-[#0a0f1a] p-3 text-[11px] text-[#cbd5e1] font-mono whitespace-pre-wrap break-words">
+{codeTemplate || componentCode}
+                    </pre>
+                  </div>
+                  <button
+                    onClick={() => setCodeTemplate(componentCode)}
+                    className="w-full bg-[#0073e6] text-[#0a0a0a] py-2 rounded-xl text-xs font-medium hover:bg-[#005bb5] transition-colors"
+                  >
+                    Usar código sugerido
+                  </button>
+                </div>
+              )}
+
+              {activeTab === 'templates' && (
+                <div className="space-y-3">
+                  {templateItems.map((item) => (
+                    <div key={item.title} className="rounded-3xl bg-[#0f172a] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm text-[#f0f0f0] font-semibold">{item.title}</p>
+                          <p className="text-[11px] text-white/50 mt-2">{item.snippet.split('\n')[0]}</p>
+                        </div>
+                        <button
+                          onClick={() => applyTemplate(item.snippet)}
+                          className="text-[11px] text-[#00d4ff] hover:text-[#00ff88]"
+                        >
+                          Aplicar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

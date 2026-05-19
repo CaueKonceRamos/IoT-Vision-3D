@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
-  Box, Grid3X3, BarChart3, FolderOpen, Users, Layers,
+  Home, Box, Grid3X3, BarChart3, FolderOpen, Users, Layers,
   Menu, X, LogOut,
   Play, Square, Save, Share2, Wifi
 } from 'lucide-react';
@@ -11,8 +11,9 @@ import { toast } from '@/stores/toastStore';
 
 const navItems = [
   { section: 'ESPACO DE TRABALHO', items: [
+    { icon: Home, label: 'Visão Geral', path: '/dashboard', view: 'home' as const },
     { icon: Box, label: '3D View', path: '/dashboard/workspace/3d', view: '3d' as const },
-    { icon: Grid3X3, label: 'Circuit Editor', path: '/dashboard/workspace/circuit', view: 'circuit' as const },
+    { icon: Grid3X3, label: '2D View', path: '/dashboard/workspace/circuit', view: 'circuit' as const },
     { icon: BarChart3, label: 'Dashboard', path: '/dashboard/workspace/data', view: 'dashboard' as const },
   ]},
   { section: 'PROJETOS', items: [
@@ -227,7 +228,7 @@ function SidebarContent({
   user,
   collapsed = false,
 }: {
-  navigate: (path: string, view: '3d' | 'circuit' | 'dashboard' | 'classes' | 'projects') => void;
+  navigate: (path: string, view: 'home' | '3d' | 'circuit' | 'dashboard' | 'classes' | 'projects') => void;
   currentPath: string;
   onLogout: () => void;
   onProfileClick: () => void;

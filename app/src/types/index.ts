@@ -8,7 +8,7 @@ export interface User {
   avatarUrl?: string;
 }
 
-export type ActiveView = '3d' | 'circuit' | 'dashboard' | 'classes' | 'projects';
+export type ActiveView = 'home' | '3d' | 'circuit' | 'dashboard' | 'classes' | 'projects';
 
 export interface Project {
   id: string;
