@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Home, Box, Grid3X3, BarChart3, Search, Users, Wifi, Cpu, Zap, Activity, ShieldCheck } from 'lucide-react';
+import { Home, Box, Grid3X3, BarChart3, Search, Wifi, Activity, ShieldCheck } from 'lucide-react';
 import { useAuthStore } from '@/stores/authStore';
 
 const welcomeMessages = [
