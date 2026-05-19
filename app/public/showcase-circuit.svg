@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" role="img" aria-label="Circuit Showcase">
+  <defs>
+    <linearGradient id="glow" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#0073e6" />
+      <stop offset="100%" stop-color="#00d4ff" />
+    </linearGradient>
+  </defs>
+  <rect width="640" height="480" rx="32" ry="32" fill="#0f172a" />
+  <rect x="40" y="40" width="560" height="400" rx="24" ry="24" fill="#111827" stroke="url(#glow)" stroke-width="4" />
+  <circle cx="160" cy="160" r="28" fill="#00d4ff" />
+  <circle cx="480" cy="160" r="28" fill="#00ff88" />
+  <circle cx="160" cy="320" r="28" fill="#ffaa00" />
+  <circle cx="480" cy="320" r="28" fill="#ff4444" />
+  <path d="M188 160h220" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
+  <path d="M160 188v116" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
+  <path d="M452 160v116" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
+  <path d="M188 320h220" stroke="#ffffff" stroke-width="6" stroke-linecap="round" />
+  <path d="M320 120v-40" stroke="#0073e6" stroke-width="10" stroke-linecap="round" />
+  <path d="M320 400v40" stroke="#00d4ff" stroke-width="10" stroke-linecap="round" />
+  <rect x="252" y="196" width="136" height="88" rx="16" ry="16" fill="#111827" stroke="#ffffff" stroke-width="5" />
+  <text x="320" y="246" text-anchor="middle" fill="#e1e1e1" font-family="Inter, sans-serif" font-size="24">Circuito</text>
+  <text x="320" y="278" text-anchor="middle" fill="#94a3b8" font-family="Inter, sans-serif" font-size="16">Voltix</text>
+</svg>

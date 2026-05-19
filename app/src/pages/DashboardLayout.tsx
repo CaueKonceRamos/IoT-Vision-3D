@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import {
   Box, Grid3X3, BarChart3, FolderOpen, Users, Layers,
@@ -27,12 +27,20 @@ const navItems = [
 export default function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, logout } = useAuthStore();
+  const { user, logout, updateProfile } = useAuthStore();
   const { activeView, setActiveView, isSimulating, toggleSimulation, sidebarCollapsed, toggleSidebar } = useAppStore();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('saved');
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [profileName, setProfileName] = useState(user?.name ?? '');
+  const [profileAvatar, setProfileAvatar] = useState(user?.avatarUrl ?? '');
 
   const currentPath = location.pathname;
+
+  useEffect(() => {
+    setProfileName(user?.name ?? '');
+    setProfileAvatar(user?.avatarUrl ?? '');
+  }, [user]);
 
   const handleNav = (path: string, view: typeof activeView) => {
     setActiveView(view);
@@ -46,6 +54,26 @@ export default function DashboardLayout() {
       setSaveStatus('saved');
       toast.success('Projeto salvo!');
     }, 800);
+  };
+
+  const handleProfileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (reader.result) setProfileAvatar(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSaveProfile = () => {
+    if (!profileName.trim()) {
+      toast.error('Nome do perfil é obrigatório');
+      return;
+    }
+    updateProfile(profileName.trim(), profileAvatar);
+    toast.success('Perfil atualizado!');
+    setShowProfileModal(false);
   };
 
   const handleLogout = () => {
@@ -62,10 +90,10 @@ export default function DashboardLayout() {
       {mobileOpen && (
         <div className="fixed inset-0 z-[60] bg-[#0a0a0a] lg:hidden" style={{ width: 280 }}>
           <div className="p-5 flex items-center justify-between border-b border-white/[0.08]">
-            <span className="text-[#f0f0f0] text-base">IoT Vision <span className="text-[#0073e6] text-[11px] uppercase tracking-wider">3D</span></span>
+            <span className="text-[#f0f0f0] text-base">Voltix <span className="text-[#0073e6] text-[11px] uppercase tracking-wider">3D</span></span>
             <button onClick={() => setMobileOpen(false)} className="text-white/50 hover:text-white"><X className="w-5 h-5" /></button>
           </div>
-          <SidebarContent navigate={handleNav} currentPath={currentPath} onLogout={handleLogout} user={user} />
+          <SidebarContent navigate={handleNav} currentPath={currentPath} onLogout={handleLogout} onProfileClick={() => setShowProfileModal(true)} user={user} />
         </div>
       )}
 
@@ -77,11 +105,11 @@ export default function DashboardLayout() {
       >
         <div className={`p-5 border-b border-white/[0.08] ${sidebarCollapsed ? 'px-3' : ''}`}>
           <span className={`text-[#f0f0f0] text-base whitespace-nowrap ${sidebarCollapsed ? 'hidden' : ''}`}>
-            IoT Vision <span className="text-[#0073e6] text-[11px] uppercase tracking-wider">3D</span>
+            Voltix <span className="text-[#0073e6] text-[11px] uppercase tracking-wider">3D</span>
           </span>
           {sidebarCollapsed && <Box className="w-5 h-5 text-[#0073e6] mx-auto" />}
         </div>
-        <SidebarContent navigate={handleNav} currentPath={currentPath} onLogout={handleLogout} user={user} collapsed={sidebarCollapsed} />
+        <SidebarContent navigate={handleNav} currentPath={currentPath} onLogout={handleLogout} onProfileClick={() => setShowProfileModal(true)} user={user} collapsed={sidebarCollapsed} />
       </aside>
 
       {/* Main Content */}
@@ -144,6 +172,49 @@ export default function DashboardLayout() {
           <Outlet />
         </main>
       </div>
+      {showProfileModal && (
+        <div className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-[480px] bg-[#121212] border border-white/[0.08] rounded-3xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-xl text-[#f0f0f0] font-normal">Editar Perfil</h2>
+                <p className="text-sm text-white/50">Atualize seu nome e foto do perfil.</p>
+              </div>
+              <button onClick={() => setShowProfileModal(false)} className="text-white/40 hover:text-white transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="grid gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full overflow-hidden bg-[#0f172a] border border-white/[0.08] flex items-center justify-center">
+                  {profileAvatar ? (
+                    <img src={profileAvatar} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-xl text-white/80">{profileName?.charAt(0)?.toUpperCase() || 'U'}</span>
+                  )}
+                </div>
+                <label className="cursor-pointer text-sm text-[#0073e6] hover:text-[#00d4ff] transition-colors">
+                  Alterar foto
+                  <input type="file" accept="image/*" onChange={handleProfileUpload} className="hidden" />
+                </label>
+              </div>
+              <div>
+                <label className="label-text block mb-2">Nome</label>
+                <input
+                  type="text"
+                  value={profileName}
+                  onChange={(e) => setProfileName(e.target.value)}
+                  className="w-full bg-white/5 border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-[#f0f0f0] placeholder:text-white/40 focus:border-[#0073e6] focus:ring-[#0073e6]/15 outline-none transition-all"
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2 border-t border-white/[0.06]">
+                <button onClick={() => setShowProfileModal(false)} className="btn-secondary px-4 py-2 text-sm">Cancelar</button>
+                <button onClick={handleSaveProfile} className="btn-primary px-4 py-2 text-sm">Salvar</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -152,13 +223,15 @@ function SidebarContent({
   navigate,
   currentPath,
   onLogout,
+  onProfileClick,
   user,
   collapsed = false,
 }: {
   navigate: (path: string, view: '3d' | 'circuit' | 'dashboard' | 'classes' | 'projects') => void;
   currentPath: string;
   onLogout: () => void;
-  user: { name: string; role: string } | null;
+  onProfileClick: () => void;
+  user: { name: string; role: string; avatarUrl?: string } | null;
   collapsed?: boolean;
 }) {
   return (
@@ -189,9 +262,17 @@ function SidebarContent({
 
       {/* User Profile */}
       <div className={`mt-auto border-t border-white/[0.08] pt-4 ${collapsed ? 'px-2' : 'px-4'}`}>
-        <div className={`flex items-center gap-3 ${collapsed ? 'justify-center' : ''}`}>
-          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#0073e6] to-[#00d4ff] flex items-center justify-center shrink-0">
-            <span className="text-xs font-medium text-white">{user?.name?.charAt(0)?.toUpperCase() || 'U'}</span>
+        <button
+          onClick={onProfileClick}
+          className={`w-full flex items-center gap-3 ${collapsed ? 'justify-center' : ''} text-left rounded-lg p-2 hover:bg-white/[0.04] transition-colors`}
+          type="button"
+        >
+          <div className="w-8 h-8 rounded-full overflow-hidden bg-gradient-to-br from-[#0073e6] to-[#00d4ff] flex items-center justify-center shrink-0">
+            {user?.avatarUrl ? (
+              <img src={user.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span className="text-xs font-medium text-white">{user?.name?.charAt(0)?.toUpperCase() || 'U'}</span>
+            )}
           </div>
           {!collapsed && (
             <div className="flex-1 min-w-0">
@@ -199,8 +280,10 @@ function SidebarContent({
               <p className="text-[11px] text-white/50 capitalize">{user?.role || 'Aluno'}</p>
             </div>
           )}
-          <button onClick={onLogout} className="text-white/30 hover:text-white/70 transition-colors" title="Sair">
-            <LogOut className="w-4 h-4" />
+        </button>
+        <div className="mt-3 flex justify-end">
+          <button onClick={onLogout} className="text-white/30 hover:text-white/70 transition-colors text-xs" title="Sair">
+            <LogOut className="w-4 h-4 inline-block align-middle" />
           </button>
         </div>
       </div>

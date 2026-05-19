@@ -118,7 +118,7 @@ export default function LoginPage() {
         ))}
 
         <div className="relative z-10 px-16">
-          <h2 className="text-[#f0f0f0] text-2xl font-normal tracking-tight mb-1">IoT Vision <span className="text-[11px] uppercase tracking-wider text-[#0073e6]">3D</span></h2>
+          <h2 className="text-[#f0f0f0] text-2xl font-normal tracking-tight mb-1">Voltix <span className="text-[11px] uppercase tracking-wider text-[#0073e6]">3D</span></h2>
           <p className="text-xl lg:text-2xl text-[#e1e1e1] font-normal leading-relaxed max-w-[360px] mt-12" style={{ letterSpacing: '-0.4px' }}>
             Laboratorio virtual para criar, simular e aprender IoT.
           </p>
@@ -254,7 +254,7 @@ export default function LoginPage() {
             <form onSubmit={handleRegister} className="space-y-5">
               <div>
                 <p className="text-[#f0f0f0] text-2xl font-normal tracking-tight">Criar Conta</p>
-                <p className="text-sm text-white/50 font-light mt-1">Junte-se a comunidade IoT Vision</p>
+                <p className="text-sm text-white/50 font-light mt-1">Junte-se a comunidade Voltix</p>
               </div>
 
               <div>

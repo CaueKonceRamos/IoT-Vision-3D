@@ -6,6 +6,7 @@ interface AuthState {
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
   register: (name: string, email: string, password: string, role: UserRole) => Promise<boolean>;
+  updateProfile: (name: string, avatarUrl?: string) => void;
   logout: () => void;
 }
 
@@ -15,11 +16,13 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   login: async (email: string, _password: string) => {
     // Simulação de login
+    const username = email.split('@')[0] || 'Usuario';
     const mockUser: User = {
       id: '1',
-      name: email.split('@')[0] || 'Usuario',
+      name: username,
       email,
       role: 'aluno',
+      avatarUrl: `https://api.dicebear.com/6.x/initials/svg?seed=${encodeURIComponent(username)}`,
     };
     set({ user: mockUser, isAuthenticated: true });
     return true;
@@ -31,9 +34,16 @@ export const useAuthStore = create<AuthState>((set) => ({
       name,
       email,
       role,
+      avatarUrl: `https://api.dicebear.com/6.x/initials/svg?seed=${encodeURIComponent(name)}`,
     };
     set({ user: mockUser, isAuthenticated: true });
     return true;
+  },
+
+  updateProfile: (name: string, avatarUrl?: string) => {
+    set((state) => ({
+      user: state.user ? { ...state.user, name, avatarUrl: avatarUrl ?? state.user.avatarUrl } : null,
+    }));
   },
 
   logout: () => {

@@ -11,10 +11,17 @@ const statusConfig = {
 };
 
 export default function ClassesView() {
-  const { classes } = useAppStore();
+  const { classes, addClass } = useAppStore();
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [joinCode, setJoinCode] = useState('');
+  const [newClassName, setNewClassName] = useState('');
+  const [newSubject, setNewSubject] = useState('Eletronica');
+  const [newTeacher, setNewTeacher] = useState('Prof. Novo');
+  const [newColor, setNewColor] = useState('#0073e6');
   const [activeTab, setActiveTab] = useState<Record<string, string>>({});
+
+  const generateClassCode = () => `T${Math.random().toString(36).replace(/[^a-z0-9]/gi, '').slice(0, 6).toUpperCase()}`;
 
   const handleJoin = () => {
     if (joinCode.length < 4) {
@@ -26,17 +33,50 @@ export default function ClassesView() {
     setJoinCode('');
   };
 
+  const handleCreateClass = () => {
+    if (!newClassName.trim() || !newSubject.trim() || !newTeacher.trim()) {
+      toast.error('Preencha todos os campos da nova turma');
+      return;
+    }
+    const code = generateClassCode();
+    addClass({
+      id: Date.now().toString(),
+      code,
+      name: newClassName.trim(),
+      subject: newSubject.trim(),
+      teacher: newTeacher.trim(),
+      color: newColor,
+      students: 0,
+      activities: [],
+    });
+    toast.success(`Turma ${newClassName.trim()} criada! Codigo: ${code}`);
+    setShowCreateModal(false);
+    setNewClassName('');
+    setNewSubject('Eletronica');
+    setNewTeacher('Prof. Novo');
+    setNewColor('#0073e6');
+  };
+
   return (
     <div className="p-6 overflow-y-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-3">
         <h1 className="text-2xl text-[#f0f0f0] font-normal tracking-tight">Minhas Turmas</h1>
-        <button
-          onClick={() => setShowJoinModal(true)}
-          className="btn-primary flex items-center gap-2 text-sm"
-        >
-          <Plus className="w-4 h-4" />
-          Entrar em Turma
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="btn-secondary flex items-center gap-2 text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Criar Turma
+          </button>
+          <button
+            onClick={() => setShowJoinModal(true)}
+            className="btn-primary flex items-center gap-2 text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Entrar em Turma
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -52,6 +92,8 @@ export default function ClassesView() {
                   <span className="text-xs text-white/40 flex items-center gap-1">
                     <Users className="w-3 h-3" /> {cls.students} alunos
                   </span>
+                  <span className="text-xs text-white/30">|</span>
+                  <span className="text-xs text-[#00ff88]">Código: {cls.code}</span>
                 </div>
               </div>
             </div>
@@ -155,6 +197,66 @@ export default function ClassesView() {
           </div>
         ))}
       </div>
+
+      {/* Create Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 z-[70] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#121212] border border-white/[0.08] rounded-xl p-6 w-full max-w-[420px]">
+            <h3 className="text-lg text-[#f0f0f0] font-normal mb-2">Criar Nova Turma</h3>
+            <p className="text-sm text-white/50 mb-4">Preencha os dados para criar uma nova turma.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="label-text block mb-2">Nome da Turma</label>
+                <input
+                  type="text"
+                  value={newClassName}
+                  onChange={(e) => setNewClassName(e.target.value)}
+                  placeholder="Ex: Robótica Avançada"
+                  className="w-full bg-white/5 border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-[#f0f0f0] placeholder:text-white/40 focus:border-[#0073e6] focus:ring-[3px] focus:ring-[#0073e6]/15 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="label-text block mb-2">Disciplina</label>
+                <input
+                  type="text"
+                  value={newSubject}
+                  onChange={(e) => setNewSubject(e.target.value)}
+                  placeholder="Eletrônica"
+                  className="w-full bg-white/5 border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-[#f0f0f0] placeholder:text-white/40 focus:border-[#0073e6] focus:ring-[3px] focus:ring-[#0073e6]/15 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="label-text block mb-2">Professor</label>
+                <input
+                  type="text"
+                  value={newTeacher}
+                  onChange={(e) => setNewTeacher(e.target.value)}
+                  placeholder="Prof. Silva"
+                  className="w-full bg-white/5 border border-white/[0.08] rounded-lg px-4 py-3 text-sm text-[#f0f0f0] placeholder:text-white/40 focus:border-[#0073e6] focus:ring-[3px] focus:ring-[#0073e6]/15 outline-none transition-all"
+                />
+              </div>
+              <div>
+                <label className="label-text block mb-2">Cor do Painel</label>
+                <div className="flex gap-2 flex-wrap">
+                  {['#0073e6', '#00d4ff', '#00ff88', '#ffaa00', '#ff4444'].map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      onClick={() => setNewColor(color)}
+                      className={`w-10 h-10 rounded-full border ${newColor === color ? 'border-white' : 'border-white/[0.12]'}`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <button onClick={() => setShowCreateModal(false)} className="btn-secondary px-4 py-2 text-sm">Cancelar</button>
+              <button onClick={handleCreateClass} className="btn-primary px-4 py-2 text-sm">Criar Turma</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Join Modal */}
       {showJoinModal && (

@@ -1,8 +1,10 @@
-import { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback, type ElementType } from 'react';
 import {
   Lightbulb, Zap, Cpu, Wifi, Thermometer, Droplets, Wind,
   Volume2, Monitor, Bluetooth, ChevronDown, Search, Trash2, Copy
 } from 'lucide-react';
+import { useAppStore } from '@/stores/appStore';
+import { toast } from '@/stores/toastStore';
 
 interface CircuitComponent {
   id: string;
@@ -11,9 +13,16 @@ interface CircuitComponent {
   x: number;
   y: number;
   rotation: number;
-  icon: React.ElementType;
+  icon: ElementType;
   color: string;
 }
+
+interface TutorialStep {
+  title: string;
+  description: string;
+}
+
+type TemplateKey = 'casa' | 'estacao' | 'irrigacao';
 
 interface Wire {
   id: string;
@@ -68,17 +77,92 @@ const componentLibrary = [
   },
 ];
 
+const templateEditorData: Record<TemplateKey, { title: string; description: string; components: CircuitComponent[]; wires: Wire[]; tutorial: TutorialStep[] }> = {
+  casa: {
+    title: 'Casa Inteligente',
+    description: 'Automatize sua casa com ESP32, sensor PIR e relé. O LED mostra o status de presença.',
+    components: [
+      { id: 'esp32', type: 'esp32', label: 'ESP32', x: 260, y: 220, rotation: 0, icon: Wifi, color: '#00d4ff' },
+      { id: 'pir', type: 'motion', label: 'PIR Sensor', x: 120, y: 140, rotation: 0, icon: Wind, color: '#00ff88' },
+      { id: 'relay', type: 'relay', label: 'Relé', x: 420, y: 140, rotation: 0, icon: Zap, color: '#ff4444' },
+      { id: 'led', type: 'led', label: 'LED', x: 120, y: 320, rotation: 0, icon: Lightbulb, color: '#00ff88' },
+      { id: 'button', type: 'button', label: 'Botão', x: 420, y: 320, rotation: 0, icon: Zap, color: '#ffaa00' },
+    ],
+    wires: [
+      { id: 'w1', from: 'pir', to: 'esp32', color: '#00ff88' },
+      { id: 'w2', from: 'esp32', to: 'relay', color: '#0073e6' },
+      { id: 'w3', from: 'esp32', to: 'led', color: '#ffaa00' },
+      { id: 'w4', from: 'button', to: 'esp32', color: '#ff4444' },
+    ],
+    tutorial: [
+      { title: 'Objetivo', description: 'Este circuito constrói uma casa inteligente com ESP32, sensor PIR para detecção de movimento, um relé para controlar carga e um LED de status.' },
+      { title: 'Componentes', description: 'O ESP32 é o cérebro. O PIR detecta presença, o relé aciona cargas e o LED indica quando o sistema está ativo. O botão serve como entrada manual.' },
+      { title: 'Conexões', description: 'O PIR envia sinal de presença ao ESP32. O ESP32 aciona o relé quando detecta movimento e também controla o LED. O botão é lido como entrada digital para testes.' },
+      { title: 'Uso real', description: 'Agora você pode ajustar o circuito ou adicionar sensores extras. No mundo real, o relé poderia ligar iluminação ou alarme quando o PIR detectar movimento.' },
+    ],
+  },
+  estacao: {
+    title: 'Estação Meteorológica',
+    description: 'Leia temperatura e umidade com DHT11, mostre os dados em um display OLED e envie resultados via WiFi.',
+    components: [
+      { id: 'esp32', type: 'esp32', label: 'ESP32', x: 260, y: 240, rotation: 0, icon: Wifi, color: '#00d4ff' },
+      { id: 'dht', type: 'temp', label: 'DHT11', x: 120, y: 140, rotation: 0, icon: Thermometer, color: '#ffaa00' },
+      { id: 'oled', type: 'oled', label: 'OLED', x: 420, y: 140, rotation: 0, icon: Monitor, color: '#00d4ff' },
+      { id: 'wifi', type: 'wifi', label: 'WiFi', x: 120, y: 320, rotation: 0, icon: Wifi, color: '#0073e6' },
+    ],
+    wires: [
+      { id: 'w1', from: 'dht', to: 'esp32', color: '#ffaa00' },
+      { id: 'w2', from: 'esp32', to: 'oled', color: '#00d4ff' },
+      { id: 'w3', from: 'esp32', to: 'wifi', color: '#0073e6' },
+    ],
+    tutorial: [
+      { title: 'Objetivo', description: 'Este circuito cria uma estação meteorológica que lê temperatura e umidade e exibe os dados num display OLED.' },
+      { title: 'Componentes', description: 'O DHT11 mede temperatura e umidade. O ESP32 processa esses dados e o OLED mostra as leituras. O módulo WiFi pode transmitir os dados para a nuvem.' },
+      { title: 'Conexões', description: 'O DHT11 está conectado ao ESP32 para leitura de sensores. O ESP32 se comunica com o display OLED e com o módulo WiFi para enviar os dados.' },
+      { title: 'Uso real', description: 'No mundo real, essa estação pode monitorar o clima local e enviar alertas ou atualizar painéis online automaticamente.' },
+    ],
+  },
+  irrigacao: {
+    title: 'Irrigação Inteligente',
+    description: 'Detecte umidade do solo e ligue a bomba com um relé. Um LED mostra quando a irrigação está ativa.',
+    components: [
+      { id: 'esp32', type: 'esp32', label: 'ESP32', x: 260, y: 220, rotation: 0, icon: Wifi, color: '#00d4ff' },
+      { id: 'moisture', type: 'humidity', label: 'Sensor de Umidade', x: 120, y: 140, rotation: 0, icon: Droplets, color: '#00d4ff' },
+      { id: 'relay', type: 'relay', label: 'Relé', x: 420, y: 140, rotation: 0, icon: Zap, color: '#ff4444' },
+      { id: 'motor', type: 'motor', label: 'Bomba', x: 420, y: 320, rotation: 0, icon: Wind, color: '#0073e6' },
+      { id: 'led', type: 'led', label: 'LED', x: 120, y: 320, rotation: 0, icon: Lightbulb, color: '#00ff88' },
+    ],
+    wires: [
+      { id: 'w1', from: 'moisture', to: 'esp32', color: '#00d4ff' },
+      { id: 'w2', from: 'esp32', to: 'relay', color: '#ff4444' },
+      { id: 'w3', from: 'relay', to: 'motor', color: '#0073e6' },
+      { id: 'w4', from: 'esp32', to: 'led', color: '#00ff88' },
+    ],
+    tutorial: [
+      { title: 'Objetivo', description: 'Este circuito de irrigação inteligente usa um sensor de umidade para ligar uma bomba através de um relé quando o solo está seco.' },
+      { title: 'Componentes', description: 'O sensor de umidade é lido pelo ESP32. O relé controla a bomba/motor. O LED indica quando a irrigação está ligada.' },
+      { title: 'Conexões', description: 'O sensor de umidade alimenta o ESP32 com dados do solo. Quando o solo está seco, o ESP32 ativa o relé e a bomba começa a irrigar.' },
+      { title: 'Uso real', description: 'Em um sistema real, isso protege plantas de seca e automatiza a irrigação, economizando água e tempo.' },
+    ],
+  },
+};
+
 export default function CircuitEditorView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { activeProject } = useAppStore();
   const [components, setComponents] = useState<CircuitComponent[]>([]);
   const [wires, setWires] = useState<Wire[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
   const [placingType, setPlacingType] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [tutorialSteps, setTutorialSteps] = useState<TutorialStep[]>([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [expandedCategory, setExpandedCategory] = useState<string>('Eletronica Basica');
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('saved');
   const isPanning = useRef(false);
   const lastPan = useRef({ x: 0, y: 0 });
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -86,6 +170,20 @@ export default function CircuitEditorView() {
   const GRID_SIZE = 20;
 
   const snapToGrid = (val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE;
+
+  useEffect(() => {
+    if (!activeProject?.template) return;
+    const templateKey = activeProject.template as TemplateKey;
+    const templateData = templateEditorData[templateKey];
+    if (!templateData) return;
+
+    setComponents(templateData.components);
+    setWires(templateData.wires);
+    setTutorialSteps(templateData.tutorial);
+    setCurrentStepIndex(0);
+    setShowTutorial(true);
+    setSelectedId(null);
+  }, [activeProject]);
 
   // Canvas rendering
   const draw = useCallback(() => {
@@ -328,6 +426,93 @@ export default function CircuitEditorView() {
     }
   };
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleSaveProject = () => {
+    setSaveStatus('saving');
+    setTimeout(() => {
+      setSaveStatus('saved');
+      toast.success('Projeto 2D salvo!');
+    }, 800);
+  };
+
+  const saveDiagram = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.toBlob((blob) => {
+      if (blob) {
+        downloadBlob(blob, 'Diagrama.png');
+        toast.success('Diagrama.png salvo!');
+      }
+    }, 'image/png');
+  };
+
+  const escapePdfString = (text: string) => text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+
+  const createPdfBytes = (lines: string[]) => {
+    const contentLines = lines.map((line, index) => {
+      const escaped = escapePdfString(line);
+      const separator = index < lines.length - 1 ? '0 -14 Td\n' : '';
+      return `(${escaped}) Tj\n${separator}`;
+    }).join('');
+
+    const content = `BT /F1 10 Tf 40 760 Td\n${contentLines}ET`;
+    const encoder = new TextEncoder();
+    const objects = [
+      `1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`,
+      `2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n`,
+      `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n`,
+      `4 0 obj\n<< /Length ${encoder.encode(content).length} >>\nstream\n${content}\nendstream\nendobj\n`,
+      `5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n`,
+    ];
+
+    let offset = encoder.encode('%PDF-1.2\n').length;
+    const xrefEntries = ['0000000000 65535 f \n'];
+    const body = objects.join('');
+    for (const obj of objects) {
+      xrefEntries.push(`${offset.toString().padStart(10, '0')} 00000 n \n`);
+      offset += encoder.encode(obj).length;
+    }
+
+    const xref = `xref\n0 ${objects.length + 1}\n${xrefEntries.join('')}`;
+    const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${offset}\n%%EOF`;
+    const pdfBytes = new Uint8Array([
+      ...encoder.encode('%PDF-1.2\n'),
+      ...encoder.encode(body),
+      ...encoder.encode(xref),
+      ...encoder.encode(trailer),
+    ]);
+    return pdfBytes;
+  };
+
+  const downloadHistoryPdf = () => {
+    const lines = [
+      'Voltix - Historico do Projeto 2D',
+      `Componentes: ${components.length}`,
+      `Conexoes: ${wires.length}`,
+      '',
+      'Componentes:',
+      ...components.map((comp) => `${comp.label} (${comp.type}) - x:${comp.x} y:${comp.y}`),
+      '',
+      'Conexoes:',
+      ...wires.map((wire) => {
+        const from = components.find((component) => component.id === wire.from);
+        const to = components.find((component) => component.id === wire.to);
+        return `${from?.label || wire.from} -> ${to?.label || wire.to}`;
+      }),
+    ];
+    const pdfBytes = createPdfBytes(lines);
+    downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), 'Historico.pdf');
+    toast.success('Historico.pdf criado!');
+  };
+
   const filteredLib = search
     ? componentLibrary.map((c) => ({
         ...c,
@@ -410,8 +595,14 @@ export default function CircuitEditorView() {
         </div>
 
         {/* Quick actions */}
-        <div className="absolute top-4 right-4 flex gap-2">
+        <div className="absolute top-4 right-4 flex gap-2 flex-wrap">
+          <button onClick={handleSaveProject} className="btn-secondary text-xs px-3 py-1.5 rounded">{saveStatus === 'saving' ? 'Salvando...' : 'Salvar 2D'}</button>
+          <button onClick={saveDiagram} className="btn-secondary text-xs px-3 py-1.5 rounded">Diagram.png</button>
+          <button onClick={downloadHistoryPdf} className="btn-secondary text-xs px-3 py-1.5 rounded">Historico.pdf</button>
           <button onClick={addWire} className="btn-secondary text-xs px-3 py-1.5 rounded">Conectar</button>
+          {tutorialSteps.length > 0 && (
+            <button onClick={() => setShowTutorial(true)} className="btn-secondary text-xs px-3 py-1.5 rounded">Tutorial</button>
+          )}
           {selectedId && (
             <>
               <button onClick={() => setComponents((prev) => prev.filter((c) => c.id !== selectedId))} className="btn-ghost text-xs px-3 py-1.5 rounded flex items-center gap-1">
@@ -423,6 +614,47 @@ export default function CircuitEditorView() {
             </>
           )}
         </div>
+
+        {showTutorial && tutorialSteps.length > 0 && (
+          <div className="absolute inset-0 z-30 bg-black/90 flex items-center justify-center p-4">
+            <div className="max-w-xl w-full bg-[#111827] border border-white/[0.08] rounded-3xl p-6 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-[#00d4ff] mb-2">Tutorial</p>
+                  <h2 className="text-xl font-semibold text-white">{templateEditorData[activeProject?.template as TemplateKey]?.title || 'Circuito'}</h2>
+                  <p className="text-sm text-white/60 mt-2">{templateEditorData[activeProject?.template as TemplateKey]?.description}</p>
+                </div>
+                <button onClick={() => setShowTutorial(false)} className="text-sm text-white/50 hover:text-white">Pular</button>
+              </div>
+              <div className="mt-6 rounded-3xl bg-white/5 p-5">
+                <p className="text-sm text-[#f0f0f0] font-semibold">{tutorialSteps[currentStepIndex].title}</p>
+                <p className="mt-3 text-sm text-white/70 leading-relaxed">{tutorialSteps[currentStepIndex].description}</p>
+              </div>
+              <div className="mt-6 flex items-center justify-between gap-4">
+                <button
+                  onClick={() => setCurrentStepIndex((prev) => Math.max(0, prev - 1))}
+                  disabled={currentStepIndex === 0}
+                  className="btn-ghost text-xs px-3 py-2 rounded disabled:opacity-40"
+                >
+                  Voltar
+                </button>
+                <div className="text-xs text-white/50">Passo {currentStepIndex + 1} de {tutorialSteps.length}</div>
+                <button
+                  onClick={() => {
+                    if (currentStepIndex === tutorialSteps.length - 1) {
+                      setShowTutorial(false);
+                    } else {
+                      setCurrentStepIndex((prev) => prev + 1);
+                    }
+                  }}
+                  className="btn-primary text-xs px-3 py-2 rounded"
+                >
+                  {currentStepIndex === tutorialSteps.length - 1 ? 'Finalizar' : 'Próximo'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

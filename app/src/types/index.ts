@@ -5,6 +5,7 @@ export interface User {
   name: string;
   email: string;
   role: UserRole;
+  avatarUrl?: string;
 }
 
 export type ActiveView = '3d' | 'circuit' | 'dashboard' | 'classes' | 'projects';
@@ -16,10 +17,12 @@ export interface Project {
   template?: string;
   owner: string;
   lastModified: string;
+  image?: string;
 }
 
 export interface ClassItem {
   id: string;
+  code: string;
   name: string;
   subject: string;
   teacher: string;
