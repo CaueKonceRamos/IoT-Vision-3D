@@ -25,9 +25,9 @@ const devices = [
 ];
 
 const baseShortcuts = [
-  { label: '3D View', description: 'Abrir modo imersivo 3D', icon: Box, path: '/dashboard/workspace/3d' },
-  { label: '2D View', description: 'Ir para montagem e conexões', icon: Grid3X3, path: '/dashboard/workspace/circuit' },
-  { label: 'Painel IoT', description: 'Monitoramento em tempo real', icon: BarChart3, path: '/dashboard/workspace/data' },
+  { label: '3D View', description: 'Abrir modo imersivo 3D', icon: Box, path: '/dashboard/workspace/3d', external: false },
+  { label: '2D View', description: 'Ir para montagem e conexões', icon: Grid3X3, path: '/dashboard/workspace/circuit', external: false },
+  { label: 'Painel IoT', description: 'Monitoramento em tempo real', icon: BarChart3, path: '/dashboard/workspace/data', external: false },
 ];
 
 export default function DashboardHomeView() {
