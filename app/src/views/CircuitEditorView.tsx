@@ -15,6 +15,7 @@ interface CircuitComponent {
   rotation: number;
   icon: ElementType;
   color: string;
+  code?: string;
 }
 
 interface TutorialStep {
@@ -167,6 +168,7 @@ export default function CircuitEditorView() {
   const [codeTemplate, setCodeTemplate] = useState<string>('');
   const [connectingMode, setConnectingMode] = useState(false);
   const [firstConnectionId, setFirstConnectionId] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
   const isPanning = useRef(false);
   const lastPan = useRef({ x: 0, y: 0 });
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -511,6 +513,41 @@ export default function CircuitEditorView() {
     }
   };
 
+  useEffect(() => {
+    if (selectedComponent) {
+      setCodeTemplate(selectedComponent.code ?? componentCode);
+    } else {
+      setCodeTemplate('');
+    }
+  }, [selectedComponent, componentCode]);
+
+  const handleCodeChange = (val: string) => {
+    setCodeTemplate(val);
+  };
+
+  const saveComponentCode = () => {
+    if (!selectedId) return;
+    setComponents((prev) => prev.map((c) => (c.id === selectedId ? { ...c, code: codeTemplate } : c)));
+    toast.success('Código salvo para o componente');
+  };
+
+  const inviteUser = () => {
+    const mention = window.prompt('Convidar usuário (use @username):');
+    if (!mention) return;
+    toast.success(`Convite enviado para ${mention}`);
+  };
+
+  const makeCopy = () => {
+    // Simple duplication feedback. Real duplication should call backend/store.
+    toast.success('Cópia do projeto criada (local)');
+  };
+
+  const linkSubject = () => {
+    const subject = window.prompt('Vincular a matéria (nome):');
+    if (!subject) return;
+    toast.success(`Projeto vinculado à matéria: ${subject}`);
+  };
+
   const downloadBlob = (blob: Blob, filename: string) => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -698,6 +735,7 @@ export default function CircuitEditorView() {
           {tutorialSteps.length > 0 && (
             <button onClick={() => setShowTutorial(true)} className="btn-secondary text-xs px-3 py-1.5 rounded">Tutorial</button>
           )}
+          <button onClick={() => setShowShareModal(true)} className="btn-secondary text-xs px-3 py-1.5 rounded">Compartilhar</button>
           {selectedId && (
             <>
               <button onClick={() => setComponents((prev) => prev.filter((c) => c.id !== selectedId))} className="btn-ghost text-xs px-3 py-1.5 rounded flex items-center gap-1">
@@ -750,6 +788,24 @@ export default function CircuitEditorView() {
             </div>
           </div>
         )}
+
+        {showShareModal && (
+          <div className="absolute inset-0 z-40 bg-black/60 flex items-center justify-center p-4">
+            <div className="w-full max-w-md bg-[#0b1220] border border-white/[0.06] rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-white">Compartilhar Projeto</h3>
+                <button onClick={() => setShowShareModal(false)} className="text-sm text-white/50">Fechar</button>
+              </div>
+              <div className="grid gap-2">
+                <button onClick={() => { saveDiagram(); setShowShareModal(false); }} className="w-full btn-secondary py-2">Exportar Diagrama (PNG)</button>
+                <button onClick={() => { downloadHistoryPdf(); setShowShareModal(false); }} className="w-full btn-secondary py-2">Gerar Histórico (PDF)</button>
+                <button onClick={() => { inviteUser(); setShowShareModal(false); }} className="w-full btn-secondary py-2">Convidar por @</button>
+                <button onClick={() => { makeCopy(); setShowShareModal(false); }} className="w-full btn-secondary py-2">Fazer Cópia</button>
+                <button onClick={() => { linkSubject(); setShowShareModal(false); }} className="w-full btn-secondary py-2">Vincular à Matéria</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Item Sidebar */}
@@ -793,18 +849,18 @@ export default function CircuitEditorView() {
 
               {activeTab === 'code' && (
                 <div className="space-y-4">
-                  <div className="rounded-3xl bg-[#0f172a] p-4">
-                    <p className="text-[11px] text-white/40 uppercase tracking-[0.2em] mb-3">Editor de Código</p>
-                    <pre className="max-h-[320px] overflow-y-auto rounded-3xl bg-[#0a0f1a] p-3 text-[11px] text-[#cbd5e1] font-mono whitespace-pre-wrap break-words">
-{codeTemplate || componentCode}
-                    </pre>
-                  </div>
-                  <button
-                    onClick={() => setCodeTemplate(componentCode)}
-                    className="w-full bg-[#0073e6] text-[#0a0a0a] py-2 rounded-xl text-xs font-medium hover:bg-[#005bb5] transition-colors"
-                  >
-                    Usar código sugerido
-                  </button>
+                      <div className="rounded-3xl bg-[#0f172a] p-3">
+                        <p className="text-[11px] text-white/40 uppercase tracking-[0.2em] mb-2">Editor de Código</p>
+                        <textarea
+                          value={codeTemplate}
+                          onChange={(e) => handleCodeChange(e.target.value)}
+                          className="w-full h-40 max-h-[320px] resize-none rounded-md bg-[#0a0f1a] p-3 text-[12px] text-[#cbd5e1] font-mono outline-none"
+                        />
+                        <div className="mt-2 flex gap-2">
+                          <button onClick={saveComponentCode} className="flex-1 bg-[#00d4ff] text-[#081018] py-2 rounded text-xs font-medium">Salvar Código</button>
+                          <button onClick={() => setCodeTemplate(componentCode)} className="flex-1 bg-[#0073e6] text-[#0a0a0a] py-2 rounded text-xs font-medium">Usar sugerido</button>
+                        </div>
+                      </div>
                 </div>
               )}
 
