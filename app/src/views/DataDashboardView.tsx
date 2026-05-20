@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { Bell, Droplet, ListChecks, Sparkles, Thermometer, TrendUp } from 'lucide-react';
+import { Bell, Droplet, ListChecks, Sparkles, Thermometer, TrendingUp } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import type { LogEntry } from '@/types';
 
@@ -68,7 +68,7 @@ export default function DataDashboardView() {
   const [logFilter, setLogFilter] = useState<'ALL' | 'INFO' | 'WARN' | 'ERROR'>('ALL');
   const [selectedAction, setSelectedAction] = useState('');
   const [interactionHistory, setInteractionHistory] = useState<string[]>([]);
-  const [alerts, setAlerts] = useState([
+  const [alerts] = useState([
     { id: '1', severity: 'warning', message: 'Umidade acima do limite configurado (65%)', time: '14:23:20' },
     { id: '2', severity: 'info', message: 'Sensor PIR detectou movimento', time: '14:22:15' },
   ]);
@@ -270,7 +270,7 @@ export default function DataDashboardView() {
                 <p className="text-sm uppercase tracking-[0.24em] text-white/40">Resumo do template</p>
                 <h2 className="text-2xl font-semibold text-[#f8fafc]">Métricas chave</h2>
               </div>
-              <TrendUp className="h-6 w-6 text-[#34d399]" />
+              <TrendingUp className="h-6 w-6 text-[#34d399]" />
             </div>
             {templateConfig ? (
               <div className="grid gap-3">
