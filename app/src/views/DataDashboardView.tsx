@@ -167,12 +167,19 @@ function createProblemPdfBytes(lines: string[], redLineIndexes: number[]) {
   }
   const xref = `xref\n0 ${objects.length + 1}\n${xrefEntries.join('')}`;
   const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${offset}\n%%EOF`;
-  return new Uint8Array([...
+  const encodedParts = [
     encoder.encode('%PDF-1.2\n'),
     encoder.encode(body),
     encoder.encode(xref),
     encoder.encode(trailer),
-  ]);
+  ];
+  const pdfBytes = new Uint8Array(encodedParts.reduce((sum, part) => sum + part.length, 0));
+  let writeIndex = 0;
+  for (const part of encodedParts) {
+    pdfBytes.set(part, writeIndex);
+    writeIndex += part.length;
+  }
+  return pdfBytes;
 }
 
 function downloadBlob(blob: Blob, filename: string) {
@@ -420,9 +427,14 @@ export default function DataDashboardView() {
     }
   };
 
+  const dashboardWrapperClass = 'p-6 overflow-y-auto transition-colors duration-300' + (problemMode ? ' bg-red-950/10' : '');
+  const dashboardHeaderClass = problemMode
+    ? 'mb-8 rounded-[32px] border border-red-500 bg-red-950/90 shadow-[0_20px_80px_rgba(125,0,0,0.35)] p-8'
+    : 'mb-8 rounded-[32px] border border-white/[0.08] bg-slate-950 shadow-[0_20px_80px_rgba(0,0,0,0.25)] p-8';
+
   return (
-    <div className={`p-6 overflow-y-auto transition-colors duration-300 ${problemMode ? 'bg-red-950/10' : ''}`}>
-      <div className={`mb-8 rounded-[32px] border ${problemMode ? 'border-red-500 bg-red-950/90 shadow-[0_20px_80px_rgba(125,0,0,0.35)]' : 'border-white/[0.08] bg-slate-950 shadow-[0_20px_80px_rgba(0,0,0,0.25)]'} p-8`}>
+    <div className={dashboardWrapperClass}>
+      <div className={dashboardHeaderClass}>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -456,7 +468,6 @@ export default function DataDashboardView() {
             </div>
           </div>
         </div>
-      </div>
 
       <div className="grid gap-4 xl:grid-cols-[2fr_1fr] xl:items-start">
         <div className="grid gap-4">
