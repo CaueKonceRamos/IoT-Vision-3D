@@ -1,8 +1,11 @@
 import { useRef, useState, useEffect, useCallback, useMemo, type ElementType } from 'react';
 import {
   Lightbulb, Zap, Cpu, Wifi, Thermometer, Droplets, Wind,
-  Volume2, Monitor, Bluetooth, ChevronDown, Search, Trash2, Copy
+  Volume2, Monitor, Bluetooth, ChevronDown, Search, Trash2, Copy,
+  Minimize2, ChevronLeft, Image, FileText, AtSign, Download
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '@/stores/authStore';
 import { useAppStore } from '@/stores/appStore';
 import { toast } from '@/stores/toastStore';
 
@@ -169,6 +172,9 @@ export default function CircuitEditorView() {
   const [connectingMode, setConnectingMode] = useState(false);
   const [firstConnectionId, setFirstConnectionId] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [showInteractionPanel, setShowInteractionPanel] = useState(true);
   const isPanning = useRef(false);
   const lastPan = useRef({ x: 0, y: 0 });
   const dragOffset = useRef({ x: 0, y: 0 });
@@ -557,10 +563,33 @@ export default function CircuitEditorView() {
     URL.revokeObjectURL(url);
   };
 
+  const navigate = useNavigate();
+  const auth = useAuthStore();
+
+  const formatDateForFilename = (d: Date) => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+  };
+
   const handleSaveProject = () => {
     setSaveStatus('saving');
     setTimeout(() => {
       setSaveStatus('saved');
+      const user = auth.user?.name || 'usuario';
+      const filename = `${user}_${formatDateForFilename(new Date())}`;
+      // persist project in app store
+      const proj = {
+        id: (activeProject?.id) ?? Date.now().toString(),
+        name: activeProject?.name ?? filename,
+        type: 'circuit',
+        template: activeProject?.template,
+        owner: auth.user?.name ?? 'Voce',
+        lastModified: 'agora',
+        image: activeProject?.image ?? '/showcase-circuit.svg',
+      } as any;
+      const { updateProject, setActiveProject } = useAppStore.getState();
+      updateProject(proj);
+      setActiveProject(proj);
       toast.success('Projeto 2D salvo!');
     }, 800);
   };
@@ -570,8 +599,10 @@ export default function CircuitEditorView() {
     if (!canvas) return;
     canvas.toBlob((blob) => {
       if (blob) {
-        downloadBlob(blob, 'Diagrama.png');
-        toast.success('Diagrama.png salvo!');
+        const user = auth.user?.name || 'usuario';
+        const filename = `${user}_${formatDateForFilename(new Date())}.png`;
+        downloadBlob(blob, filename);
+        toast.success(`${filename} salvo!`);
       }
     }, 'image/png');
   };
@@ -631,8 +662,10 @@ export default function CircuitEditorView() {
       }),
     ];
     const pdfBytes = createPdfBytes(lines);
-    downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), 'Historico.pdf');
-    toast.success('Historico.pdf criado!');
+    const user = auth.user?.name || 'usuario';
+    const filename = `${user}_${formatDateForFilename(new Date())}.pdf`;
+    downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), filename);
+    toast.success(`${filename} criado!`);
   };
 
   const filteredLib = search
@@ -645,19 +678,23 @@ export default function CircuitEditorView() {
   return (
     <div className="flex h-full" onKeyDown={handleKeyDown} tabIndex={0}>
       {/* Component Library */}
-      <div className="w-[260px] bg-[#121212] border-r border-white/[0.08] flex flex-col shrink-0">
-        <div className="p-4 border-b border-white/[0.08]">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Buscar componente..."
-              className="w-full bg-white/5 border border-white/[0.08] rounded-md pl-9 pr-3 py-2 text-xs text-[#f0f0f0] placeholder:text-white/40 focus:border-[#0073e6] outline-none transition-colors"
-            />
+      {!leftCollapsed ? (
+        <div className="w-[260px] bg-[#121212] border-r border-white/[0.08] flex flex-col shrink-0">
+          <div className="p-4 border-b border-white/[0.08] flex items-center justify-between gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar componente..."
+                className="w-full bg-white/5 border border-white/[0.08] rounded-md pl-9 pr-3 py-2 text-xs text-[#f0f0f0] placeholder:text-white/40 focus:border-[#0073e6] outline-none transition-colors"
+              />
+            </div>
+            <button onClick={() => setLeftCollapsed(true)} title="Minimizar" className="btn-ghost p-2 rounded ml-2">
+              <Minimize2 className="w-4 h-4" />
+            </button>
           </div>
-        </div>
         <div className="flex-1 overflow-y-auto p-3 space-y-2">
           {filteredLib.map((cat) => (
             <div key={cat.category}>
@@ -689,7 +726,14 @@ export default function CircuitEditorView() {
             </div>
           ))}
         </div>
-      </div>
+        </div>
+      ) : (
+        <div className="w-[44px] bg-[#0f172a] border-r border-white/[0.04] flex items-center justify-center">
+          <button onClick={() => setLeftCollapsed(false)} title="Abrir menu" className="p-2">
+            <ChevronLeft className="w-4 h-4 text-white/60" />
+          </button>
+        </div>
+      )}
 
       {/* Canvas */}
       <div className="flex-1 relative overflow-hidden">
@@ -722,30 +766,41 @@ export default function CircuitEditorView() {
         </div>
 
         {/* Quick actions */}
-        <div className="absolute top-4 right-4 flex gap-2 flex-wrap">
-          <button onClick={handleSaveProject} className="btn-secondary text-xs px-3 py-1.5 rounded">{saveStatus === 'saving' ? 'Salvando...' : 'Salvar 2D'}</button>
-          <button onClick={saveDiagram} className="btn-secondary text-xs px-3 py-1.5 rounded">Diagram.png</button>
-          <button onClick={downloadHistoryPdf} className="btn-secondary text-xs px-3 py-1.5 rounded">Historico.pdf</button>
-          <button 
-            onClick={addWire} 
-            className={`text-xs px-3 py-1.5 rounded transition-colors ${connectingMode ? 'bg-[#ff4444] text-[#0a0a0a] hover:bg-[#ff6666]' : 'btn-secondary'}`}
-          >
-            {connectingMode ? 'Cancelar Conexão' : 'Conectar'}
-          </button>
-          {tutorialSteps.length > 0 && (
-            <button onClick={() => setShowTutorial(true)} className="btn-secondary text-xs px-3 py-1.5 rounded">Tutorial</button>
-          )}
-          <button onClick={() => setShowShareModal(true)} className="btn-secondary text-xs px-3 py-1.5 rounded">Compartilhar</button>
-          {selectedId && (
-            <>
-              <button onClick={() => setComponents((prev) => prev.filter((c) => c.id !== selectedId))} className="btn-ghost text-xs px-3 py-1.5 rounded flex items-center gap-1">
-                <Trash2 className="w-3 h-3" />
-              </button>
-              <button className="btn-ghost text-xs px-3 py-1.5 rounded flex items-center gap-1">
-                <Copy className="w-3 h-3" />
-              </button>
-            </>
-          )}
+        <div className="absolute top-4 right-4 flex gap-2 flex-wrap items-center">
+          <div className="flex items-center gap-2">
+            <button onClick={() => navigate('/dashboard')} title="Voltar" className="btn-ghost p-2 rounded">
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <button onClick={handleSaveProject} className="btn-secondary text-xs px-3 py-1.5 rounded">{saveStatus === 'saving' ? 'Salvando...' : 'Salvar 2D'}</button>
+            <button 
+              onClick={addWire} 
+              className={`text-xs px-3 py-1.5 rounded transition-colors ${connectingMode ? 'bg-[#ff4444] text-[#0a0a0a] hover:bg-[#ff6666]' : 'btn-secondary'}`}
+            >
+              {connectingMode ? 'Cancelar Conexão' : 'Conectar'}
+            </button>
+            {tutorialSteps.length > 0 && (
+              <button onClick={() => setShowTutorial(true)} className="btn-secondary text-xs px-3 py-1.5 rounded">Tutorial</button>
+            )}
+            <button onClick={() => setShowShareModal(true)} className="btn-secondary text-xs px-3 py-1.5 rounded">Compartilhar</button>
+          </div>
+          <div className="ml-2 flex items-center gap-1">
+            <button onClick={() => setShowInteractionPanel((s) => !s)} title="Painel 2D" className="btn-ghost p-2 rounded">
+              <Image className="w-4 h-4" />
+            </button>
+            <button onClick={() => { setLeftCollapsed(true); setRightCollapsed(true); }} title="Minimizar Paineis" className="btn-ghost p-2 rounded">
+              <Minimize2 className="w-4 h-4" />
+            </button>
+            {selectedId && (
+              <>
+                <button onClick={() => setComponents((prev) => prev.filter((c) => c.id !== selectedId))} className="btn-ghost text-xs px-3 py-1.5 rounded flex items-center gap-1">
+                  <Trash2 className="w-3 h-3" />
+                </button>
+                <button className="btn-ghost text-xs px-3 py-1.5 rounded flex items-center gap-1">
+                  <Copy className="w-3 h-3" />
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         {showTutorial && tutorialSteps.length > 0 && (
@@ -797,11 +852,11 @@ export default function CircuitEditorView() {
                 <button onClick={() => setShowShareModal(false)} className="text-sm text-white/50">Fechar</button>
               </div>
               <div className="grid gap-2">
-                <button onClick={() => { saveDiagram(); setShowShareModal(false); }} className="w-full btn-secondary py-2">Exportar Diagrama (PNG)</button>
-                <button onClick={() => { downloadHistoryPdf(); setShowShareModal(false); }} className="w-full btn-secondary py-2">Gerar Histórico (PDF)</button>
-                <button onClick={() => { inviteUser(); setShowShareModal(false); }} className="w-full btn-secondary py-2">Convidar por @</button>
-                <button onClick={() => { makeCopy(); setShowShareModal(false); }} className="w-full btn-secondary py-2">Fazer Cópia</button>
-                <button onClick={() => { linkSubject(); setShowShareModal(false); }} className="w-full btn-secondary py-2">Vincular à Matéria</button>
+                <button onClick={() => { saveDiagram(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><Image className="w-4 h-4" /> Exportar Diagrama (PNG)</button>
+                <button onClick={() => { downloadHistoryPdf(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><FileText className="w-4 h-4" /> Gerar Histórico (PDF)</button>
+                <button onClick={() => { inviteUser(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><AtSign className="w-4 h-4" /> Convidar por @</button>
+                <button onClick={() => { makeCopy(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><Copy className="w-4 h-4" /> Fazer Cópia</button>
+                <button onClick={() => { linkSubject(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><Download className="w-4 h-4" /> Vincular à Matéria</button>
               </div>
             </div>
           </div>
@@ -809,10 +864,14 @@ export default function CircuitEditorView() {
       </div>
 
       {/* Item Sidebar */}
-      <div className="hidden xl:flex w-[280px] flex-col bg-[#121212] border-l border-white/[0.08] overflow-y-auto">
-        <div className="p-4 border-b border-white/[0.08]">
-          <h2 className="text-sm font-semibold text-[#f0f0f0]">Componente</h2>
-        </div>
+      {!rightCollapsed ? (
+        <div className="hidden xl:flex w-[280px] flex-col bg-[#121212] border-l border-white/[0.08] overflow-y-auto">
+          <div className="p-4 border-b border-white/[0.08] flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-[#f0f0f0]">Componente</h2>
+            <button onClick={() => setRightCollapsed(true)} title="Minimizar" className="btn-ghost p-2 rounded">
+              <Minimize2 className="w-4 h-4" />
+            </button>
+          </div>
         <div className="flex gap-1 p-2 border-b border-white/[0.06]">
           {(['overview', 'code', 'templates'] as const).map((tab) => (
             <button
@@ -887,7 +946,31 @@ export default function CircuitEditorView() {
             </>
           )}
         </div>
-      </div>
+        </div>
+      ) : (
+        <div className="hidden xl:flex w-[44px] bg-[#0f172a] border-l border-white/[0.04] items-center justify-center">
+          <button onClick={() => setRightCollapsed(false)} title="Abrir detalhes" className="p-2">
+            <ChevronLeft className="w-4 h-4 text-white/60 rotate-180" />
+          </button>
+        </div>
+      )}
+
+      {/* Interaction Panel */}
+      {showInteractionPanel && (
+        <div className="absolute top-20 left-6 z-30 bg-[#0b1220] border border-white/[0.06] rounded-lg p-3 text-xs text-white/70">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <div className="text-[12px] font-semibold">Painel 2D</div>
+              <div className="text-[11px] text-white/50">Componentes: {components.length}</div>
+              <div className="text-[11px] text-white/50">Conexões: {wires.length}</div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <button onClick={() => setZoom(1)} className="btn-ghost p-1 rounded text-[11px]">Reset</button>
+              <button onClick={() => setShowInteractionPanel(false)} title="Fechar painel" className="btn-ghost p-1 rounded"><Minimize2 className="w-3 h-3" /></button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -16,6 +16,7 @@ interface AppState {
   toggleSidebar: () => void;
   addClass: (cls: ClassItem) => void;
   addProject: (project: Project) => void;
+  updateProject: (project: Project) => void;
   addSensorData: (data: SensorData) => void;
   addLog: (log: LogEntry) => void;
 }
@@ -60,6 +61,11 @@ export const useAppStore = create<AppState>((set) => ({
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   addClass: (cls) => set((s) => ({ classes: [...s.classes, cls] })),
   addProject: (project) => set((s) => ({ projects: [...s.projects, project] })),
+  updateProject: (project) => set((s) => ({
+    projects: s.projects.some((p) => p.id === project.id)
+      ? s.projects.map((p) => (p.id === project.id ? project : p))
+      : [...s.projects, project],
+  })),
   addSensorData: (data) => set((s) => ({ sensorData: [...s.sensorData.slice(-100), data] })),
   addLog: (log) => set((s) => ({ logs: [...s.logs.slice(-99), log] })),
 }));

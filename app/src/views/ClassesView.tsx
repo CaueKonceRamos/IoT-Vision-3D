@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Users, Plus, BookOpen, Calendar, GraduationCap } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
+import { useAuthStore } from '@/stores/authStore';
 import { toast } from '@/stores/toastStore';
 
 const statusConfig = {
@@ -12,6 +13,8 @@ const statusConfig = {
 
 export default function ClassesView() {
   const { classes, addClass } = useAppStore();
+  const auth = useAuthStore();
+  const canCreate = auth.user?.role !== 'aluno';
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [joinCode, setJoinCode] = useState('');
@@ -63,7 +66,10 @@ export default function ClassesView() {
         <h1 className="text-2xl text-[#f0f0f0] font-normal tracking-tight">Minhas Turmas</h1>
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setShowCreateModal(true)}
+            onClick={() => {
+              if (!canCreate) return toast.error('Alunos não podem criar turmas');
+              setShowCreateModal(true);
+            }}
             className="btn-secondary flex items-center gap-2 text-sm"
           >
             <Plus className="w-4 h-4" />
@@ -252,7 +258,7 @@ export default function ClassesView() {
             </div>
             <div className="mt-6 flex justify-end gap-3">
               <button onClick={() => setShowCreateModal(false)} className="btn-secondary px-4 py-2 text-sm">Cancelar</button>
-              <button onClick={handleCreateClass} className="btn-primary px-4 py-2 text-sm">Criar Turma</button>
+              <button onClick={handleCreateClass} disabled={!canCreate} className="btn-primary px-4 py-2 text-sm">Criar Turma</button>
             </div>
           </div>
         </div>
