@@ -21,7 +21,7 @@ const templateDashboardConfig = {
       { title: 'Umidade relativa', value: '58%' },
       { title: 'Consumo médio', value: '3.9 kW' },
     ],
-    actions: ['Ligar luz', 'Fechar cortinas', 'Ver consumo'],
+    actions: ['Ligar luz', 'Fechar cortinas', 'Ver consumo', 'Simular problema'],
   },
   estacao: {
     title: 'Estação Meteorológica',
@@ -31,7 +31,7 @@ const templateDashboardConfig = {
       { title: 'Alertas ativos', value: '2' },
       { title: 'Chance de chuva', value: '45%' },
     ],
-    actions: ['Atualizar leitura', 'Configurar alerta', 'Ver histórico'],
+    actions: ['Atualizar leitura', 'Configurar alerta', 'Ver histórico', 'Simular problema'],
   },
   irrigacao: {
     title: 'Irrigação Inteligente',
@@ -41,7 +41,7 @@ const templateDashboardConfig = {
       { title: 'Bombas ligadas', value: '2' },
       { title: 'Último ciclo', value: '18 min' },
     ],
-    actions: ['Iniciar irrigação', 'Pausar bomba', 'Ver níveis de solo'],
+    actions: ['Iniciar irrigação', 'Pausar bomba', 'Ver níveis de solo', 'Simular problema'],
   },
 } as const;
 
@@ -105,6 +105,83 @@ function calculateMetrics(history: { time: string; value: number }[]) {
     max: Math.max(...values),
     min: Math.min(...values),
   };
+}
+
+function playTone(frequency: number, duration = 0.15, volume = 0.12) {
+  const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioCtx) return;
+  const ctx = new AudioCtx();
+  const oscillator = ctx.createOscillator();
+  const gain = ctx.createGain();
+  oscillator.type = 'sine';
+  oscillator.frequency.value = frequency;
+  gain.gain.value = volume;
+  oscillator.connect(gain);
+  gain.connect(ctx.destination);
+  oscillator.start();
+  oscillator.stop(ctx.currentTime + duration);
+  oscillator.onended = () => ctx.close();
+}
+
+function playClickSound() {
+  playTone(880, 0.08, 0.08);
+}
+
+function playAlertSound() {
+  playTone(880, 0.15, 0.16);
+  setTimeout(() => playTone(660, 0.15, 0.16), 180);
+}
+
+function escapePdfString(text: string) {
+  return text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+
+function createProblemPdfBytes(lines: string[], redLineIndexes: number[]) {
+  const encoder = new TextEncoder();
+  const escapedLines = lines.map((line) => escapePdfString(line));
+  const contentParts: string[] = ['BT /F1 10 Tf 40 760 Td'];
+  escapedLines.forEach((line, index) => {
+    const isRed = redLineIndexes.includes(index);
+    contentParts.push(isRed ? '1 0 0 rg' : '0 0 0 rg');
+    contentParts.push(`(${line}) Tj`);
+    if (index < escapedLines.length - 1) contentParts.push('0 -14 Td');
+  });
+  contentParts.push('ET');
+
+  const content = contentParts.join('\n');
+  const objects = [
+    `1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`,
+    `2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n`,
+    `3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n`,
+    `4 0 obj\n<< /Length ${encoder.encode(content).length} >>\nstream\n${content}\nendstream\nendobj\n`,
+    `5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n`,
+  ];
+
+  let offset = encoder.encode('%PDF-1.2\n').length;
+  const xrefEntries = ['0000000000 65535 f \n'];
+  let body = '';
+  for (const obj of objects) {
+    xrefEntries.push(`${offset.toString().padStart(10, '0')} 00000 n \n`);
+    body += obj;
+    offset += encoder.encode(obj).length;
+  }
+  const xref = `xref\n0 ${objects.length + 1}\n${xrefEntries.join('')}`;
+  const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${offset}\n%%EOF`;
+  return new Uint8Array([...
+    encoder.encode('%PDF-1.2\n'),
+    encoder.encode(body),
+    encoder.encode(xref),
+    encoder.encode(trailer),
+  ]);
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 function buildPrintHtml(options: {
@@ -207,6 +284,8 @@ export default function DataDashboardView() {
   const [localLogs, setLocalLogs] = useState<LogEntry[]>(initialLogs);
   const [logFilter, setLogFilter] = useState<'ALL' | 'INFO' | 'WARN' | 'ERROR'>('ALL');
   const [selectedAction, setSelectedAction] = useState('');
+  const [problemMode, setProblemMode] = useState(false);
+  const [problemDescription, setProblemDescription] = useState('');
   const [interactionHistory, setInteractionHistory] = useState<string[]>([]);
   const [alerts] = useState([
     { id: '1', severity: 'warning', message: 'Umidade acima do limite configurado (65%)', time: '14:23:20' },
@@ -273,7 +352,53 @@ export default function DataDashboardView() {
         { title: 'Aguardando template', value: 'Selecione um projeto', detail: 'Abra um template 3D para ver métricas do sistema.' },
       ];
 
+  const handleSimulateProblem = () => {
+    const projectName = activeProject?.name ?? 'Dashboard de template';
+    const problemText = 'POSSÍVEL PROBLEMA: Falha de comunicação do sensor de temperatura detectada.';
+    const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    setSelectedAction('Simular problema');
+    setProblemMode(true);
+    setProblemDescription(problemText);
+    setInteractionHistory((prev) => [`${now} — Simulação de problema iniciada`, ...prev].slice(0, 5));
+    playAlertSound();
+
+    const pdfLines = [
+      `Projeto: ${projectName}`,
+      `Template: ${activeProject?.template ?? 'não selecionado'}`,
+      '',
+      `Temperatura atual: ${currentTemp.toFixed(1)}°C`,
+      `Umidade atual: ${currentHumidity.toFixed(0)}%`,
+      `Luminosidade atual: ${currentLight.toFixed(0)} lux`,
+      '',
+      problemText,
+      'Recomenda-se verificar o sensor e a alimentação do módulo rapidamente.',
+    ];
+    const pdfBytes = createProblemPdfBytes(pdfLines, [pdfLines.length - 2]);
+    downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), `${projectName.replace(/[^a-zA-Z0-9]/g, '_')}_problema.pdf`);
+
+    setTimeout(() => {
+      setProblemMode(false);
+      setProblemDescription('');
+    }, 12000);
+  };
+
+  const handleAction = (action: string) => {
+    playClickSound();
+    if (action === 'Simular problema') {
+      handleSimulateProblem();
+      return;
+    }
+
+    setSelectedAction(action);
+    setInteractionHistory((prev) => [
+      `${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — ${action}`,
+      ...prev,
+    ].slice(0, 5));
+  };
+
   const handlePrintDashboard = () => {
+    playClickSound();
     const projectName = activeProject?.name ?? 'Dashboard de template';
     const templateLabelText = activeProject?.template ? `Template: ${activeProject.template}` : 'Template não selecionado';
     const printHtml = buildPrintHtml({
@@ -296,8 +421,8 @@ export default function DataDashboardView() {
   };
 
   return (
-    <div className="p-6 overflow-y-auto">
-      <div className="mb-8 rounded-[32px] border border-white/[0.08] bg-slate-950 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.25)]">
+    <div className={`p-6 overflow-y-auto transition-colors duration-300 ${problemMode ? 'bg-red-950/10' : ''}`}>
+      <div className={`mb-8 rounded-[32px] border ${problemMode ? 'border-red-500 bg-red-950/90 shadow-[0_20px_80px_rgba(125,0,0,0.35)]' : 'border-white/[0.08] bg-slate-950 shadow-[0_20px_80px_rgba(0,0,0,0.25)]'} p-8`}>
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2">
@@ -312,17 +437,23 @@ export default function DataDashboardView() {
                   ? 'Painel profissional de métricas, ações e histórico para projetos baseados em templates prontos.'
                   : 'Abra um projeto para ativar a dashboard e visualizar todas as estatísticas.'}
               </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            {systemSummaryMetrics.map((metric) => (
-              <div key={metric.title} className="rounded-3xl border border-white/[0.08] bg-[#0b1220] p-4 text-center">
-                <p className="text-xs uppercase tracking-[0.24em] text-white/40">{metric.title}</p>
-                <p className="mt-3 text-3xl font-semibold text-[#f8fafc]">{metric.value}</p>
-                <p className="mt-2 text-sm text-white/50">{metric.detail}</p>
+                {problemMode && problemDescription ? (
+                  <div className="mt-4 rounded-3xl border border-red-500 bg-red-950/90 p-4 text-sm text-red-100">
+                    <strong>Simulação de problema ativa:</strong> {problemDescription}
+                  </div>
+                ) : null}
               </div>
-            ))}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+              {systemSummaryMetrics.map((metric) => (
+                <div key={metric.title} className="rounded-3xl border border-white/[0.08] bg-[#0b1220] p-4 text-center">
+                  <p className="text-xs uppercase tracking-[0.24em] text-white/40">{metric.title}</p>
+                  <p className="mt-3 text-3xl font-semibold text-[#f8fafc]">{metric.value}</p>
+                  <p className="mt-2 text-sm text-white/50">{metric.detail}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -414,13 +545,7 @@ export default function DataDashboardView() {
                 actionOptions.map((action) => (
                   <button
                     key={action}
-                    onClick={() => {
-                      setSelectedAction(action);
-                      setInteractionHistory((prev) => [
-                        `${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — ${action}`,
-                        ...prev,
-                      ]);
-                    }}
+                    onClick={() => handleAction(action)}
                     className="rounded-3xl border border-white/[0.08] bg-white/5 px-5 py-4 text-left text-sm text-white transition hover:border-[#00d4ff] hover:bg-[#00d4ff]/10"
                   >
                     {action}
