@@ -31,7 +31,9 @@ type TemplateKey = 'casa' | 'estacao' | 'irrigacao';
 interface Wire {
   id: string;
   from: string;
+  fromPin: '+' | '-';
   to: string;
+  toPin: '+' | '-';
   color: string;
 }
 
@@ -93,10 +95,10 @@ const templateEditorData: Record<TemplateKey, { title: string; description: stri
       { id: 'button', type: 'button', label: 'Botão', x: 420, y: 320, rotation: 0, icon: Zap, color: '#ffaa00' },
     ],
     wires: [
-      { id: 'w1', from: 'pir', to: 'esp32', color: '#00ff88' },
-      { id: 'w2', from: 'esp32', to: 'relay', color: '#0073e6' },
-      { id: 'w3', from: 'esp32', to: 'led', color: '#ffaa00' },
-      { id: 'w4', from: 'button', to: 'esp32', color: '#ff4444' },
+      { id: 'w1', from: 'pir', fromPin: '+', to: 'esp32', toPin: '-', color: '#00ff88' },
+      { id: 'w2', from: 'esp32', fromPin: '+', to: 'relay', toPin: '-', color: '#0073e6' },
+      { id: 'w3', from: 'esp32', fromPin: '+', to: 'led', toPin: '-', color: '#ffaa00' },
+      { id: 'w4', from: 'button', fromPin: '+', to: 'esp32', toPin: '-', color: '#ff4444' },
     ],
     tutorial: [
       { title: 'Objetivo', description: 'Este circuito constrói uma casa inteligente com ESP32, sensor PIR para detecção de movimento, um relé para controlar carga e um LED de status.' },
@@ -115,9 +117,9 @@ const templateEditorData: Record<TemplateKey, { title: string; description: stri
       { id: 'wifi', type: 'wifi', label: 'WiFi', x: 120, y: 320, rotation: 0, icon: Wifi, color: '#0073e6' },
     ],
     wires: [
-      { id: 'w1', from: 'dht', to: 'esp32', color: '#ffaa00' },
-      { id: 'w2', from: 'esp32', to: 'oled', color: '#00d4ff' },
-      { id: 'w3', from: 'esp32', to: 'wifi', color: '#0073e6' },
+      { id: 'w1', from: 'dht', fromPin: '+', to: 'esp32', toPin: '-', color: '#ffaa00' },
+      { id: 'w2', from: 'esp32', fromPin: '+', to: 'oled', toPin: '-', color: '#00d4ff' },
+      { id: 'w3', from: 'esp32', fromPin: '+', to: 'wifi', toPin: '-', color: '#0073e6' },
     ],
     tutorial: [
       { title: 'Objetivo', description: 'Este circuito cria uma estação meteorológica que lê temperatura e umidade e exibe os dados num display OLED.' },
@@ -137,10 +139,10 @@ const templateEditorData: Record<TemplateKey, { title: string; description: stri
       { id: 'led', type: 'led', label: 'LED', x: 120, y: 320, rotation: 0, icon: Lightbulb, color: '#00ff88' },
     ],
     wires: [
-      { id: 'w1', from: 'moisture', to: 'esp32', color: '#00d4ff' },
-      { id: 'w2', from: 'esp32', to: 'relay', color: '#ff4444' },
-      { id: 'w3', from: 'relay', to: 'motor', color: '#0073e6' },
-      { id: 'w4', from: 'esp32', to: 'led', color: '#00ff88' },
+      { id: 'w1', from: 'moisture', fromPin: '+', to: 'esp32', toPin: '-', color: '#00d4ff' },
+      { id: 'w2', from: 'esp32', fromPin: '+', to: 'relay', toPin: '-', color: '#ff4444' },
+      { id: 'w3', from: 'relay', fromPin: '+', to: 'motor', toPin: '-', color: '#0073e6' },
+      { id: 'w4', from: 'esp32', fromPin: '+', to: 'led', toPin: '-', color: '#00ff88' },
     ],
     tutorial: [
       { title: 'Objetivo', description: 'Este circuito de irrigação inteligente usa um sensor de umidade para ligar uma bomba através de um relé quando o solo está seco.' },
@@ -170,7 +172,9 @@ export default function CircuitEditorView() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('saved');
   const [codeTemplate, setCodeTemplate] = useState<string>('');
   const [connectingMode, setConnectingMode] = useState(false);
+  const [connectionPin, setConnectionPin] = useState<'+' | '-'>('+');
   const [firstConnectionId, setFirstConnectionId] = useState<string | null>(null);
+  const [firstConnectionPin, setFirstConnectionPin] = useState<'+' | '-'>('+');
   const [showShareModal, setShowShareModal] = useState(false);
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
@@ -182,6 +186,13 @@ export default function CircuitEditorView() {
   const GRID_SIZE = 20;
 
   const snapToGrid = (val: number) => Math.round(val / GRID_SIZE) * GRID_SIZE;
+
+  const getPinCoords = (comp: CircuitComponent, pin: '+' | '-') => {
+    const size = comp.type === 'arduino' || comp.type === 'esp32' || comp.type === 'raspberry' ? 60 : 40;
+    const x = pin === '+' ? comp.x + size / 2 : comp.x - size / 2;
+    const y = comp.y;
+    return { x, y };
+  };
 
   const selectedComponent = useMemo(
     () => components.find((comp) => comp.id === selectedId) ?? null,
@@ -291,14 +302,16 @@ export default function CircuitEditorView() {
       const fromComp = components.find((c) => c.id === wire.from);
       const toComp = components.find((c) => c.id === wire.to);
       if (!fromComp || !toComp) return;
+      const fromPos = getPinCoords(fromComp, wire.fromPin);
+      const toPos = getPinCoords(toComp, wire.toPin);
       ctx.strokeStyle = wire.color;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(fromComp.x, fromComp.y);
-      const midX = (fromComp.x + toComp.x) / 2;
-      ctx.lineTo(midX, fromComp.y);
-      ctx.lineTo(midX, toComp.y);
-      ctx.lineTo(toComp.x, toComp.y);
+      ctx.moveTo(fromPos.x, fromPos.y);
+      const midX = (fromPos.x + toPos.x) / 2;
+      ctx.lineTo(midX, fromPos.y);
+      ctx.lineTo(midX, toPos.y);
+      ctx.lineTo(toPos.x, toPos.y);
       ctx.stroke();
     });
 
@@ -335,18 +348,21 @@ export default function CircuitEditorView() {
       ctx.fillText(comp.label, comp.x, comp.y + size / 2 + 14);
 
       // Connection pins
-      ctx.fillStyle = comp.color;
-      const pinPositions = [
-        [comp.x - size / 2, comp.y],
-        [comp.x + size / 2, comp.y],
-        [comp.x, comp.y - size / 2],
-        [comp.x, comp.y + size / 2],
-      ];
-      pinPositions.forEach(([px, py]) => {
-        ctx.beginPath();
-        ctx.arc(px, py, 3, 0, Math.PI * 2);
-        ctx.fill();
-      });
+      const minusPos = getPinCoords(comp, '-');
+      const plusPos = getPinCoords(comp, '+');
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.arc(minusPos.x, minusPos.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      ctx.arc(plusPos.x, plusPos.y, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.8)';
+      ctx.font = '10px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('-', minusPos.x, minusPos.y + 4);
+      ctx.fillText('+', plusPos.x, plusPos.y + 4);
     });
 
     ctx.restore();
@@ -423,19 +439,24 @@ export default function CircuitEditorView() {
       if (!firstConnectionId) {
         // First component selected
         setFirstConnectionId(clicked.id);
+        setFirstConnectionPin(connectionPin);
         setSelectedId(clicked.id);
+        toast.info(`Primeiro ponto ${connectionPin} selecionado em ${clicked.label}`);
       } else if (clicked.id !== firstConnectionId) {
         // Second component selected - create wire
         const newWire: Wire = {
           id: Date.now().toString(),
           from: firstConnectionId,
+          fromPin: firstConnectionPin,
           to: clicked.id,
+          toPin: firstConnectionPin === '+' ? '-' : '+',
           color: ['#0073e6', '#00d4ff', '#00ff88', '#ffaa00'][Math.floor(Math.random() * 4)],
         };
         setWires((prev) => [...prev, newWire]);
-        toast.success(`Conexão criada entre componentes!`);
+        toast.success(`Conexão criada: ${firstConnectionPin} -> ${firstConnectionPin === '+' ? '-' : '+'}`);
         setConnectingMode(false);
         setFirstConnectionId(null);
+        setFirstConnectionPin('+');
         setSelectedId(null);
       }
       return;
@@ -508,12 +529,14 @@ export default function CircuitEditorView() {
       // Cancel connection mode
       setConnectingMode(false);
       setFirstConnectionId(null);
+      setFirstConnectionPin('+');
       setSelectedId(null);
       toast.info('Modo de conexão cancelado');
     } else {
       // Enter connection mode
       setConnectingMode(true);
       setFirstConnectionId(null);
+      setFirstConnectionPin('+');
       setSelectedId(null);
       toast.info('Clique em dois componentes para conectá-los');
     }
@@ -658,7 +681,7 @@ export default function CircuitEditorView() {
       ...wires.map((wire) => {
         const from = components.find((component) => component.id === wire.from);
         const to = components.find((component) => component.id === wire.to);
-        return `${from?.label || wire.from} -> ${to?.label || wire.to}`;
+        return `${from?.label || wire.from}(${wire.fromPin}) -> ${to?.label || wire.to}(${wire.toPin})`;
       }),
     ];
     const pdfBytes = createPdfBytes(lines);
@@ -744,7 +767,9 @@ export default function CircuitEditorView() {
         )}
         {connectingMode && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-[#121212] border border-[#00ff88]/30 rounded-lg px-4 py-2 text-xs text-[#00ff88]">
-            {firstConnectionId ? 'Clique no segundo componente' : 'Clique no primeiro componente'}
+            {firstConnectionId
+              ? `Conecte segundo componente (${firstConnectionPin === '+' ? '-' : '+'})`
+              : `Selecione primeiro componente (${connectionPin})`}
           </div>
         )}
         <canvas
@@ -781,6 +806,24 @@ export default function CircuitEditorView() {
             >
               {connectingMode ? 'Cancelar Conexão' : 'Conectar'}
             </button>
+            {connectingMode && (
+              <div className="flex items-center gap-1 text-[10px]">
+                <button
+                  type="button"
+                  onClick={() => setConnectionPin('+')}
+                  className={`rounded-full px-2 py-1 ${connectionPin === '+' ? 'bg-[#22c55e] text-[#071908]' : 'bg-white/5 text-white/70 hover:bg-white/10'}`}
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConnectionPin('-')}
+                  className={`rounded-full px-2 py-1 ${connectionPin === '-' ? 'bg-[#ef4444] text-[#1f0505]' : 'bg-white/5 text-white/70 hover:bg-white/10'}`}
+                >
+                  -
+                </button>
+              </div>
+            )}
             {tutorialSteps.length > 0 && (
               <button onClick={() => setShowTutorial(true)} className="btn-secondary text-xs px-3 py-1.5 rounded">Tutorial</button>
             )}
