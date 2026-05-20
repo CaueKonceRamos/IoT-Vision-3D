@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment } from '@react-three/drei';
 import * as THREE from 'three';
-import { Box, RotateCcw, Move, Maximize2, BarChart3 } from 'lucide-react';
+import { Box, RotateCcw, Move, Maximize2 } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 
 interface IoTComponent {

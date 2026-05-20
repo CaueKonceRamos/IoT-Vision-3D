@@ -67,7 +67,7 @@ const defaultClasses: ClassItem[] = [
   },
 ];
 
-export const useAppStore = create<AppState>((set, get) => {
+export const useAppStore = create<AppState>((set) => {
   const stored = loadAppState();
   return {
     activeView: 'home',
