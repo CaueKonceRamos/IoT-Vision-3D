@@ -17,9 +17,9 @@ const templateDashboardConfig = {
     title: 'Casa Inteligente',
     description: 'Automação residencial com controle de energia, sensores e dispositivos conectados.',
     stats: [
-      { title: 'Dispositivos ativos', value: '12' },
-      { title: 'Automação ativa', value: '8/10' },
-      { title: 'Consumo médio', value: '4.8 kW' },
+      { title: 'Temperatura média', value: '24.2°C' },
+      { title: 'Umidade relativa', value: '58%' },
+      { title: 'Consumo médio', value: '3.9 kW' },
     ],
     actions: ['Ligar luz', 'Fechar cortinas', 'Ver consumo'],
   },
@@ -27,7 +27,7 @@ const templateDashboardConfig = {
     title: 'Estação Meteorológica',
     description: 'Monitoramento de clima e alertas em tempo real para evitar imprevistos.',
     stats: [
-      { title: 'Leituras por hora', value: '18' },
+      { title: 'Previsão do dia', value: 'Parcialmente nublado' },
       { title: 'Alertas ativos', value: '2' },
       { title: 'Chance de chuva', value: '45%' },
     ],
@@ -37,15 +37,48 @@ const templateDashboardConfig = {
     title: 'Irrigação Inteligente',
     description: 'Controle inteligente da umidade do solo e do ciclo das bombas.',
     stats: [
-      { title: 'Umidade do solo', value: '42%' },
-      { title: 'Bombas ligadas', value: '3' },
-      { title: 'Tempo de irrigação', value: '18 min' },
+      { title: 'Umidade ideal', value: '45%' },
+      { title: 'Bombas ligadas', value: '2' },
+      { title: 'Último ciclo', value: '18 min' },
     ],
     actions: ['Iniciar irrigação', 'Pausar bomba', 'Ver níveis de solo'],
   },
 } as const;
 
 type TemplateKey = keyof typeof templateDashboardConfig;
+
+function getTemplateSummaryMetrics(
+  key: TemplateKey,
+  currentTemp: number,
+  currentHumidity: number,
+  currentLight: number,
+  alertsCount: number,
+) {
+  switch (key) {
+    case 'casa':
+      return [
+        { title: 'Temperatura atual', value: `${currentTemp.toFixed(1)}°C`, detail: 'Climatização do ambiente' },
+        { title: 'Umidade interna', value: `${currentHumidity.toFixed(0)}%`, detail: 'Conforto residencial' },
+        { title: 'Dispositivos conectados', value: '8', detail: 'Sensores e atuadores ativos' },
+      ];
+    case 'estacao':
+      return [
+        { title: 'Temperatura atual', value: `${currentTemp.toFixed(1)}°C`, detail: 'Medição do sensor de ambiente' },
+        { title: 'Umidade do ar', value: `${currentHumidity.toFixed(0)}%`, detail: 'Nível de vapor no ar' },
+        { title: 'Luminosidade', value: `${currentLight.toFixed(0)} lux`, detail: 'Índice de claridade' },
+      ];
+    case 'irrigacao':
+      return [
+        { title: 'Umidade do solo', value: `${Math.max(20, Math.min(100, currentHumidity - 8)).toFixed(0)}%`, detail: 'Nível de água disponível' },
+        { title: 'Bombas ativas', value: '2', detail: 'Canais de irrigação operando' },
+        { title: 'Alertas ativos', value: `${alertsCount}`, detail: 'Condições de irrigação' },
+      ];
+    default:
+      return [
+        { title: 'Estado do sistema', value: 'Aguardando projeto', detail: 'Selecione um template para exibir métricas' },
+      ];
+  }
+}
 
 function generateSensorValue(type: string, time: number): number {
   switch (type) {
@@ -64,6 +97,7 @@ export default function DataDashboardView() {
   const { isSimulating, addSensorData, addLog, activeProject } = useAppStore();
   const [tempHistory, setTempHistory] = useState<{ time: string; value: number }[]>([]);
   const [humidityHistory, setHumidityHistory] = useState<{ time: string; value: number }[]>([]);
+  const [lightHistory, setLightHistory] = useState<{ time: string; value: number }[]>([]);
   const [localLogs, setLocalLogs] = useState<LogEntry[]>(initialLogs);
   const [logFilter, setLogFilter] = useState<'ALL' | 'INFO' | 'WARN' | 'ERROR'>('ALL');
   const [selectedAction, setSelectedAction] = useState('');
@@ -88,6 +122,7 @@ export default function DataDashboardView() {
 
         setTempHistory((prev) => [...prev.slice(-30), { time: timeStr, value: parseFloat(temp.toFixed(1)) }]);
         setHumidityHistory((prev) => [...prev.slice(-30), { time: timeStr, value: parseFloat(humidity.toFixed(1)) }]);
+        setLightHistory((prev) => [...prev.slice(-30), { time: timeStr, value: parseFloat(light.toFixed(0)) }]);
 
         addSensorData({ name: 'Temperatura', type: 'DHT11', value: temp, unit: 'C', timestamp: Date.now() });
         addSensorData({ name: 'Umidade', type: 'DHT11', value: humidity, unit: '%', timestamp: Date.now() });
@@ -115,12 +150,18 @@ export default function DataDashboardView() {
   const filteredLogs = logFilter === 'ALL' ? localLogs : localLogs.filter((log) => log.level === logFilter);
   const currentTemp = tempHistory.length > 0 ? tempHistory[tempHistory.length - 1].value : 24.5;
   const currentHumidity = humidityHistory.length > 0 ? humidityHistory[humidityHistory.length - 1].value : 62;
+  const currentLight = lightHistory.length > 0 ? lightHistory[lightHistory.length - 1].value : 320;
 
   const templateKey = activeProject?.template as TemplateKey | undefined;
   const templateConfig = templateKey ? templateDashboardConfig[templateKey] : null;
   const projectTypeLabel = activeProject?.type === '3d' ? 'Projeto 3D' : activeProject?.type === 'circuit' ? 'Projeto 2D' : 'Projeto';
   const templateLabel = activeProject?.template ? `Template: ${activeProject.template}` : null;
   const actionOptions = templateConfig?.actions ?? [];
+  const systemSummaryMetrics = templateKey
+    ? getTemplateSummaryMetrics(templateKey, currentTemp, currentHumidity, currentLight, alerts.length)
+    : [
+        { title: 'Aguardando template', value: 'Selecione um projeto', detail: 'Abra um template 3D para ver métricas do sistema.' },
+      ];
 
   return (
     <div className="p-6 overflow-y-auto">
@@ -143,21 +184,13 @@ export default function DataDashboardView() {
           </div>
 
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <div className="rounded-3xl border border-white/[0.08] bg-[#0b1220] p-4 text-center">
-              <p className="text-xs uppercase tracking-[0.24em] text-white/40">Conexões</p>
-              <p className="mt-3 text-3xl font-semibold text-[#f8fafc]">5</p>
-              <p className="mt-2 text-sm text-white/50">Dispositivos online</p>
-            </div>
-            <div className="rounded-3xl border border-white/[0.08] bg-[#0b1220] p-4 text-center">
-              <p className="text-xs uppercase tracking-[0.24em] text-white/40">Integridade</p>
-              <p className="mt-3 text-3xl font-semibold text-[#f8fafc]">97%</p>
-              <p className="mt-2 text-sm text-white/50">Disponibilidade do sistema</p>
-            </div>
-            <div className="rounded-3xl border border-white/[0.08] bg-[#0b1220] p-4 text-center">
-              <p className="text-xs uppercase tracking-[0.24em] text-white/40">Alertas</p>
-              <p className="mt-3 text-3xl font-semibold text-[#f8fafc]">{alerts.length}</p>
-              <p className="mt-2 text-sm text-white/50">Eventos ativos</p>
-            </div>
+            {systemSummaryMetrics.map((metric) => (
+              <div key={metric.title} className="rounded-3xl border border-white/[0.08] bg-[#0b1220] p-4 text-center">
+                <p className="text-xs uppercase tracking-[0.24em] text-white/40">{metric.title}</p>
+                <p className="mt-3 text-3xl font-semibold text-[#f8fafc]">{metric.value}</p>
+                <p className="mt-2 text-sm text-white/50">{metric.detail}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
