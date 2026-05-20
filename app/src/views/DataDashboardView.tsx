@@ -93,6 +93,112 @@ function generateSensorValue(type: string, time: number): number {
   }
 }
 
+function calculateMetrics(history: { time: string; value: number }[]) {
+  const length = history.length;
+  if (!length) {
+    return { average: 0, max: 0, min: 0 };
+  }
+  const total = history.reduce((sum, point) => sum + point.value, 0);
+  const values = history.map((point) => point.value);
+  return {
+    average: total / length,
+    max: Math.max(...values),
+    min: Math.min(...values),
+  };
+}
+
+function buildPrintHtml(options: {
+  projectName: string;
+  templateLabel: string;
+  systemSummary: readonly { title: string; value: string; detail: string }[];
+  templateStats: readonly { title: string; value: string }[];
+  tempMetrics: ReturnType<typeof calculateMetrics>;
+  humidityMetrics: ReturnType<typeof calculateMetrics>;
+  lightMetrics: ReturnType<typeof calculateMetrics>;
+  interactionHistory: string[];
+  logs: LogEntry[];
+}) {
+  const {
+    projectName,
+    templateLabel,
+    systemSummary,
+    templateStats,
+    tempMetrics,
+    humidityMetrics,
+    lightMetrics,
+    interactionHistory,
+    logs,
+  } = options;
+
+  const escapeHtml = (value: string) =>
+    value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Relatório de Impressão - ${escapeHtml(projectName)}</title>
+    <style>
+      body { font-family: Arial, sans-serif; color: #111827; margin: 24px; }
+      h1, h2, h3 { color: #111827; }
+      .section { margin-bottom: 24px; }
+      .metric { margin: 8px 0; }
+      .metric strong { display: inline-block; width: 200px; }
+      .box { padding: 16px; border: 1px solid #d1d5db; border-radius: 12px; margin-top: 12px; }
+      .small { color: #6b7280; }
+      table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+      th, td { text-align: left; border: 1px solid #d1d5db; padding: 8px; }
+      th { background: #f3f4f6; }
+    </style>
+  </head>
+  <body>
+    <h1>Relatório do template</h1>
+    <p class="small">Projeto: ${escapeHtml(projectName)} | ${escapeHtml(templateLabel)}</p>
+
+    <div class="section box">
+      <h2>Resumo do sistema</h2>
+      ${systemSummary
+        .map((metric) => `<div class="metric"><strong>${escapeHtml(metric.title)}:</strong> ${escapeHtml(metric.value)}<br/><span class="small">${escapeHtml(metric.detail)}</span></div>`)
+        .join('')}
+    </div>
+
+    <div class="section box">
+      <h2>Métricas de sensores</h2>
+      <div class="metric"><strong>Temperatura média:</strong> ${tempMetrics.average.toFixed(1)}°C</div>
+      <div class="metric"><strong>Temperatura pico:</strong> ${tempMetrics.max.toFixed(1)}°C</div>
+      <div class="metric"><strong>Temperatura mínima:</strong> ${tempMetrics.min.toFixed(1)}°C</div>
+      <div class="metric"><strong>Umidade média:</strong> ${humidityMetrics.average.toFixed(0)}%</div>
+      <div class="metric"><strong>Umidade máxima:</strong> ${humidityMetrics.max.toFixed(0)}%</div>
+      <div class="metric"><strong>Umidade mínima:</strong> ${humidityMetrics.min.toFixed(0)}%</div>
+      <div class="metric"><strong>Luminosidade média:</strong> ${lightMetrics.average.toFixed(0)} lux</div>
+      <div class="metric"><strong>Luminosidade máxima:</strong> ${lightMetrics.max.toFixed(0)} lux</div>
+      <div class="metric"><strong>Luminosidade mínima:</strong> ${lightMetrics.min.toFixed(0)} lux</div>
+    </div>
+
+    <div class="section box">
+      <h2>Estatísticas do template</h2>
+      ${templateStats
+        .map((stat) => `<div class="metric"><strong>${escapeHtml(stat.title)}:</strong> ${escapeHtml(stat.value)}</div>`)
+        .join('')}
+    </div>
+
+    <div class="section box">
+      <h2>Histórico de interações</h2>
+      ${interactionHistory.length > 0 ? `<ol>${interactionHistory.map((entry) => `<li>${escapeHtml(entry)}</li>`).join('')}</ol>` : '<p class="small">Nenhuma interação registrada.</p>'}
+    </div>
+
+    <div class="section box">
+      <h2>Logs recentes</h2>
+      ${logs.length > 0 ? `<table><thead><tr><th>Hora</th><th>Nível</th><th>Mensagem</th></tr></thead><tbody>${logs
+        .map((log) => `<tr><td>${escapeHtml(log.time)}</td><td>${escapeHtml(log.level)}</td><td>${escapeHtml(log.message)}</td></tr>`)
+        .join('')}</tbody></table>` : '<p class="small">Nenhum log disponível.</p>'}
+    </div>
+
+    <script>window.print();</script>
+  </body>
+</html>`;
+}
+
 export default function DataDashboardView() {
   const { isSimulating, addSensorData, addLog, activeProject } = useAppStore();
   const [tempHistory, setTempHistory] = useState<{ time: string; value: number }[]>([]);
@@ -152,6 +258,11 @@ export default function DataDashboardView() {
   const currentHumidity = humidityHistory.length > 0 ? humidityHistory[humidityHistory.length - 1].value : 62;
   const currentLight = lightHistory.length > 0 ? lightHistory[lightHistory.length - 1].value : 320;
 
+  const tempMetrics = calculateMetrics(tempHistory);
+  const humidityMetrics = calculateMetrics(humidityHistory);
+  const lightMetrics = calculateMetrics(lightHistory);
+  const historyPreview = interactionHistory.slice(0, 5);
+
   const templateKey = activeProject?.template as TemplateKey | undefined;
   const templateConfig = templateKey ? templateDashboardConfig[templateKey] : null;
   const projectTypeLabel = activeProject?.type === '3d' ? 'Projeto 3D' : activeProject?.type === 'circuit' ? 'Projeto 2D' : 'Projeto';
@@ -162,6 +273,28 @@ export default function DataDashboardView() {
     : [
         { title: 'Aguardando template', value: 'Selecione um projeto', detail: 'Abra um template 3D para ver métricas do sistema.' },
       ];
+
+  const handlePrintDashboard = () => {
+    const projectName = activeProject?.name ?? 'Dashboard de template';
+    const templateLabelText = activeProject?.template ? `Template: ${activeProject.template}` : 'Template não selecionado';
+    const printHtml = buildPrintHtml({
+      projectName,
+      templateLabel: templateLabelText,
+      systemSummary: systemSummaryMetrics,
+      templateStats: templateConfig?.stats ?? [],
+      tempMetrics,
+      humidityMetrics,
+      lightMetrics,
+      interactionHistory,
+      logs: filteredLogs,
+    });
+
+    const printWindow = window.open('', '_blank', 'width=950,height=700');
+    if (printWindow) {
+      printWindow.document.write(printHtml);
+      printWindow.document.close();
+    }
+  };
 
   return (
     <div className="p-6 overflow-y-auto">
@@ -203,7 +336,16 @@ export default function DataDashboardView() {
                 <p className="text-sm uppercase tracking-[0.24em] text-white/40">Visão geral dos sensores</p>
                 <h2 className="mt-3 text-2xl font-semibold text-[#f8fafc]">Dados em tempo real</h2>
               </div>
-              <div className="rounded-2xl bg-white/5 px-4 py-2 text-sm text-white/60">Atualizando continuamente</div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <div className="rounded-2xl bg-white/5 px-4 py-2 text-sm text-white/60">Atualizando continuamente</div>
+                <button
+                  type="button"
+                  onClick={handlePrintDashboard}
+                  className="rounded-2xl bg-[#2563eb] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#1d4ed8]"
+                >
+                  Imprimir dados
+                </button>
+              </div>
             </div>
             <div className="mt-6 grid gap-4 lg:grid-cols-2">
               <div className="rounded-3xl border border-white/[0.06] bg-[#111827]/90 p-4">
@@ -278,7 +420,7 @@ export default function DataDashboardView() {
                       setInteractionHistory((prev) => [
                         `${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — ${action}`,
                         ...prev,
-                      ].slice(0, 5));
+                      ]);
                     }}
                     className="rounded-3xl border border-white/[0.08] bg-white/5 px-5 py-4 text-left text-sm text-white transition hover:border-[#00d4ff] hover:bg-[#00d4ff]/10"
                   >
