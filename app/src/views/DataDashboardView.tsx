@@ -54,6 +54,8 @@ export default function DataDashboardView() {
     { id: '1', severity: 'warning', message: 'Umidade acima do limite configurado (65%)', time: '14:23:20' },
     { id: '2', severity: 'info', message: 'Sensor PIR detectou movimento', time: '14:22:15' },
   ]);
+  const [selectedAction, setSelectedAction] = useState('');
+  const [interactionHistory, setInteractionHistory] = useState<string[]>([]);
   const timeRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
@@ -96,6 +98,47 @@ export default function DataDashboardView() {
   const currentTemp = tempHistory.length > 0 ? tempHistory[tempHistory.length - 1].value : 24.5;
   const currentHumidity = humidityHistory.length > 0 ? humidityHistory[humidityHistory.length - 1].value : 62;
 
+  const templateDashboard = activeProject?.template ? {
+    casa: {
+      label: 'Casa Inteligente',
+      interaction: 'Painel de automações domésticas e consumo de energia.',
+      stats: [
+        { title: 'Dispositivos ativos', value: '12' },
+        { title: 'Automação ativa', value: '8/10' },
+        { title: 'Consumo médio', value: '4.8 kW' },
+      ],
+      actions: ['Ligar luz', 'Fechar cortinas', 'Ver consumo'],
+    },
+    estacao: {
+      label: 'Estação Meteorológica',
+      interaction: 'Fluxo de leituras de clima em tempo real e alertas.',
+      stats: [
+        { title: 'Leituras por hora', value: '18' },
+        { title: 'Alertas ativos', value: '2' },
+        { title: 'Previsão chuva', value: '45%' },
+      ],
+      actions: ['Atualizar leitura', 'Configurar alerta', 'Ver histórico'],
+    },
+    irrigacao: {
+      label: 'Irrigação Inteligente',
+      interaction: 'Controle de umidade do solo e ciclo das bombas.',
+      stats: [
+        { title: 'Umidade do solo', value: '42%' },
+        { title: 'Bombas ligadas', value: '3' },
+        { title: 'Tempo de irrigação', value: '18 min' },
+      ],
+      actions: ['Iniciar irrigação', 'Pausar bomba', 'Ver níveis de solo'],
+    },
+  }[activeProject?.template as 'casa' | 'estacao' | 'irrigacao'] : null;
+
+  const handleTemplateAction = (action: string) => {
+    setSelectedAction(action);
+    setInteractionHistory((prev) => [
+      `${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — ${action}`,
+      ...prev,
+    ].slice(0, 5));
+  };
+
   const projectTypeLabel = activeProject?.type === '3d' ? 'Projeto 3D' : activeProject?.type === 'circuit' ? 'Projeto 2D' : 'Projeto';
   const templateLabel = activeProject?.template ? `Template: ${activeProject.template}` : null;
 
@@ -108,12 +151,61 @@ export default function DataDashboardView() {
         {activeProject ? (
           <div className="text-sm text-white/50 space-y-1">
             <p>{projectTypeLabel}{templateLabel ? ` · ${templateLabel}` : ''}</p>
-            <p>Resumo de interatividade e dados para o projeto ativo.</p>
+            <p>{templateDashboard?.interaction || 'Resumo de interatividade e dados para o projeto ativo.'}</p>
           </div>
         ) : (
           <p className="text-sm text-white/50">Selecione um projeto em Meus Projetos para acessar o painel de interatividade específico.</p>
         )}
       </div>
+
+      {templateDashboard && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+          <div className="panel p-5 lg:col-span-3">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <p className="text-xs text-white/40 uppercase tracking-[0.2em]">Dashboard de Template</p>
+                <h2 className="text-xl text-[#f0f0f0] font-semibold mt-2">{templateDashboard.label}</h2>
+                <p className="text-sm text-white/50 mt-2">{templateDashboard.interaction}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {templateDashboard.actions.map((action) => (
+                  <button
+                    key={action}
+                    onClick={() => handleTemplateAction(action)}
+                    className="btn-secondary text-sm px-4 py-2"
+                  >
+                    {action}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
+              {templateDashboard.stats.map((stat) => (
+                <div key={stat.title} className="rounded-2xl border border-white/[0.08] bg-white/5 p-4">
+                  <p className="text-[10px] text-white/40 uppercase tracking-[0.2em] mb-2">{stat.title}</p>
+                  <p className="text-2xl text-[#f0f0f0] font-semibold">{stat.value}</p>
+                </div>
+              ))}
+            </div>
+            {selectedAction && (
+              <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/5 p-4">
+                <p className="text-sm text-[#f0f0f0]">Última ação:</p>
+                <p className="text-base text-[#00d4ff] mt-1">{selectedAction}</p>
+              </div>
+            )}
+            {interactionHistory.length > 0 && (
+              <div className="mt-4 text-sm text-white/50">
+                <p className="mb-2 uppercase tracking-[0.2em] text-[10px] text-white/40">Histórico de interação</p>
+                <div className="space-y-1">
+                  {interactionHistory.map((entry, index) => (
+                    <div key={index} className="rounded-xl bg-white/5 p-2 text-xs text-white/60">{entry}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Device Status */}
