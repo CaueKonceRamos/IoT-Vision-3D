@@ -71,9 +71,16 @@ export default function ProjectsView() {
     return matchesSearch && matchesFilter;
   });
 
+  const circuitTemplates = ['casa', 'estacao', 'irrigacao'] as const;
   const handleOpenProject = (project: typeof projects[0]) => {
     toast.success(`Abrindo: ${project.name}`);
     setActiveProject(project);
+
+    if (project.template && circuitTemplates.includes(project.template as typeof circuitTemplates[number])) {
+      navigate('/dashboard/workspace/circuit');
+      return;
+    }
+
     if (project.type === '3d') {
       navigate('/dashboard/workspace/3d');
     } else {
