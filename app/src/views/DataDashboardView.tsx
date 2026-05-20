@@ -261,7 +261,6 @@ export default function DataDashboardView() {
   const tempMetrics = calculateMetrics(tempHistory);
   const humidityMetrics = calculateMetrics(humidityHistory);
   const lightMetrics = calculateMetrics(lightHistory);
-  const historyPreview = interactionHistory.slice(0, 5);
 
   const templateKey = activeProject?.template as TemplateKey | undefined;
   const templateConfig = templateKey ? templateDashboardConfig[templateKey] : null;
