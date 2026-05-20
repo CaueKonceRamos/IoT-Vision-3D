@@ -260,6 +260,15 @@ export default function DataDashboardView() {
               <p className="text-xs text-white/40 uppercase tracking-[0.24em]">Última ação</p>
               <p className="mt-3 text-lg font-semibold text-[#f8fafc]">{selectedAction || 'Nenhuma ação registrada'}</p>
               <p className="text-sm text-white/50 mt-2">A interação fica registrada no histórico para consulta imediata.</p>
+              <div className="mt-4 space-y-3">
+                {interactionHistory.length > 0 ? (
+                  interactionHistory.map((entry, index) => (
+                    <p key={index} className="text-sm text-white/60">{entry}</p>
+                  ))
+                ) : (
+                  <p className="text-sm text-white/50">Ainda não há ações recentes.</p>
+                )}
+              </div>
             </div>
           </div>
         </div>
