@@ -1,46 +1,62 @@
-import { useEffect, useState, useRef } from 'react';
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell
-} from 'recharts';
-import {
-  Wifi, AlertTriangle, X, Battery
-} from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Bell, Droplet, ListChecks, Sparkles, Thermometer, TrendUp } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 import type { LogEntry } from '@/types';
 
 const initialLogs: LogEntry[] = [
   { time: '14:23:01', level: 'INFO', message: 'ESP32-Principal conectado' },
   { time: '14:23:05', level: 'INFO', message: 'Sensor PIR inicializado' },
-  { time: '14:23:10', level: 'INFO', message: 'Simulacao iniciada' },
+  { time: '14:23:10', level: 'INFO', message: 'Simulação iniciada' },
   { time: '14:23:15', level: 'INFO', message: 'DHT11: temperatura 24.5C' },
   { time: '14:23:20', level: 'WARN', message: 'Umidade acima do limite: 68%' },
 ];
 
-const devices = [
-  { name: 'ESP32-Principal', status: 'online', icon: Wifi, lastSeen: '2s' },
-  { name: 'Arduino-Uno', status: 'online', icon: Wifi, lastSeen: '5s' },
-  { name: 'Sensor-PIR-01', status: 'simulating', icon: Wifi, lastSeen: '1s' },
-  { name: 'DHT11-Sala', status: 'online', icon: Wifi, lastSeen: '3s' },
-  { name: 'Rele-Lampada', status: 'online', icon: Wifi, lastSeen: '4s' },
-];
+const templateDashboardConfig = {
+  casa: {
+    title: 'Casa Inteligente',
+    description: 'Automação residencial com controle de energia, sensores e dispositivos conectados.',
+    stats: [
+      { title: 'Dispositivos ativos', value: '12' },
+      { title: 'Automação ativa', value: '8/10' },
+      { title: 'Consumo médio', value: '4.8 kW' },
+    ],
+    actions: ['Ligar luz', 'Fechar cortinas', 'Ver consumo'],
+  },
+  estacao: {
+    title: 'Estação Meteorológica',
+    description: 'Monitoramento de clima e alertas em tempo real para evitar imprevistos.',
+    stats: [
+      { title: 'Leituras por hora', value: '18' },
+      { title: 'Alertas ativos', value: '2' },
+      { title: 'Chance de chuva', value: '45%' },
+    ],
+    actions: ['Atualizar leitura', 'Configurar alerta', 'Ver histórico'],
+  },
+  irrigacao: {
+    title: 'Irrigação Inteligente',
+    description: 'Controle inteligente da umidade do solo e do ciclo das bombas.',
+    stats: [
+      { title: 'Umidade do solo', value: '42%' },
+      { title: 'Bombas ligadas', value: '3' },
+      { title: 'Tempo de irrigação', value: '18 min' },
+    ],
+    actions: ['Iniciar irrigação', 'Pausar bomba', 'Ver níveis de solo'],
+  },
+} as const;
 
-const powerData = [
-  { name: 'ESP32', value: 35 },
-  { name: 'Arduino', value: 25 },
-  { name: 'Sensores', value: 20 },
-  { name: 'Atuadores', value: 20 },
-];
-
-const COLORS = ['#0073e6', '#00d4ff', '#00ff88', '#ffaa00'];
+type TemplateKey = keyof typeof templateDashboardConfig;
 
 function generateSensorValue(type: string, time: number): number {
   switch (type) {
-    case 'temperature': return 22 + Math.sin(time * 0.1) * 3 + (Math.random() - 0.5) * 0.5;
-    case 'humidity': return 55 + Math.sin(time * 0.07) * 10 + (Math.random() - 0.5) * 2;
-    case 'light': return Math.max(0, 500 * Math.sin(time * 0.05) + (Math.random() - 0.5) * 50);
-    case 'motion': return Math.random() > 0.97 ? 1 : 0;
-    case 'distance': return Math.abs(Math.sin(time * 0.03) * 200 + (Math.random() - 0.5) * 10);
-    default: return Math.random() * 100;
+    case 'temperature':
+      return 22 + Math.sin(time * 0.12) * 3 + (Math.random() - 0.5) * 0.4;
+    case 'humidity':
+      return 55 + Math.sin(time * 0.09) * 10 + (Math.random() - 0.5) * 1.5;
+    case 'light':
+      return Math.max(0, 500 * Math.sin(time * 0.04) + (Math.random() - 0.5) * 40);
+    default:
+      return Math.random() * 100;
   }
 }
 
@@ -50,12 +66,12 @@ export default function DataDashboardView() {
   const [humidityHistory, setHumidityHistory] = useState<{ time: string; value: number }[]>([]);
   const [localLogs, setLocalLogs] = useState<LogEntry[]>(initialLogs);
   const [logFilter, setLogFilter] = useState<'ALL' | 'INFO' | 'WARN' | 'ERROR'>('ALL');
+  const [selectedAction, setSelectedAction] = useState('');
+  const [interactionHistory, setInteractionHistory] = useState<string[]>([]);
   const [alerts, setAlerts] = useState([
     { id: '1', severity: 'warning', message: 'Umidade acima do limite configurado (65%)', time: '14:23:20' },
     { id: '2', severity: 'info', message: 'Sensor PIR detectou movimento', time: '14:22:15' },
   ]);
-  const [selectedAction, setSelectedAction] = useState('');
-  const [interactionHistory, setInteractionHistory] = useState<string[]>([]);
   const timeRef = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
@@ -77,7 +93,7 @@ export default function DataDashboardView() {
         addSensorData({ name: 'Umidade', type: 'DHT11', value: humidity, unit: '%', timestamp: Date.now() });
         addSensorData({ name: 'Luminosidade', type: 'LDR', value: light, unit: 'lux', timestamp: Date.now() });
 
-        if (Math.random() > 0.95) {
+        if (Math.random() > 0.94) {
           const log: LogEntry = {
             time: timeStr,
             level: Math.random() > 0.7 ? 'WARN' : 'INFO',
@@ -88,326 +104,243 @@ export default function DataDashboardView() {
         }
       }, 1000);
     }
+
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
   }, [isSimulating, addSensorData, addLog]);
 
-  const filteredLogs = logFilter === 'ALL' ? localLogs : localLogs.filter((l) => l.level === logFilter);
-
+  const filteredLogs = logFilter === 'ALL' ? localLogs : localLogs.filter((log) => log.level === logFilter);
   const currentTemp = tempHistory.length > 0 ? tempHistory[tempHistory.length - 1].value : 24.5;
   const currentHumidity = humidityHistory.length > 0 ? humidityHistory[humidityHistory.length - 1].value : 62;
 
-  const templateDashboard = activeProject?.template ? {
-    casa: {
-      label: 'Casa Inteligente',
-      interaction: 'Painel de automações domésticas e consumo de energia.',
-      stats: [
-        { title: 'Dispositivos ativos', value: '12' },
-        { title: 'Automação ativa', value: '8/10' },
-        { title: 'Consumo médio', value: '4.8 kW' },
-      ],
-      actions: ['Ligar luz', 'Fechar cortinas', 'Ver consumo'],
-    },
-    estacao: {
-      label: 'Estação Meteorológica',
-      interaction: 'Fluxo de leituras de clima em tempo real e alertas.',
-      stats: [
-        { title: 'Leituras por hora', value: '18' },
-        { title: 'Alertas ativos', value: '2' },
-        { title: 'Previsão chuva', value: '45%' },
-      ],
-      actions: ['Atualizar leitura', 'Configurar alerta', 'Ver histórico'],
-    },
-    irrigacao: {
-      label: 'Irrigação Inteligente',
-      interaction: 'Controle de umidade do solo e ciclo das bombas.',
-      stats: [
-        { title: 'Umidade do solo', value: '42%' },
-        { title: 'Bombas ligadas', value: '3' },
-        { title: 'Tempo de irrigação', value: '18 min' },
-      ],
-      actions: ['Iniciar irrigação', 'Pausar bomba', 'Ver níveis de solo'],
-    },
-  }[activeProject?.template as 'casa' | 'estacao' | 'irrigacao'] : null;
-
-  const handleTemplateAction = (action: string) => {
-    setSelectedAction(action);
-    setInteractionHistory((prev) => [
-      `${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — ${action}`,
-      ...prev,
-    ].slice(0, 5));
-  };
-
+  const templateKey = activeProject?.template as TemplateKey | undefined;
+  const templateConfig = templateKey ? templateDashboardConfig[templateKey] : null;
   const projectTypeLabel = activeProject?.type === '3d' ? 'Projeto 3D' : activeProject?.type === 'circuit' ? 'Projeto 2D' : 'Projeto';
   const templateLabel = activeProject?.template ? `Template: ${activeProject.template}` : null;
+  const actionOptions = templateConfig?.actions ?? [];
 
   return (
     <div className="p-6 overflow-y-auto">
-      <div className="mb-4">
-        <h1 className="text-2xl text-[#f0f0f0] font-normal tracking-tight mb-2">
-          {activeProject ? `${activeProject.name} — Dashboard` : 'Dashboard do Projeto'}
-        </h1>
-        {activeProject ? (
-          <div className="text-sm text-white/50 space-y-1">
-            <p>{projectTypeLabel}{templateLabel ? ` · ${templateLabel}` : ''}</p>
-            <p>{templateDashboard?.interaction || 'Resumo de interatividade e dados para o projeto ativo.'}</p>
+      <div className="mb-8 rounded-[32px] border border-white/[0.08] bg-slate-950 p-8 shadow-[0_20px_80px_rgba(0,0,0,0.25)]">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-[#0b1220] px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-white/50">Dashboard</span>
+              {activeProject && <span className="rounded-full bg-white/5 px-3 py-1 text-[11px] text-white/60">{projectTypeLabel}</span>}
+              {templateLabel && <span className="rounded-full bg-white/5 px-3 py-1 text-[11px] text-white/60">{templateLabel}</span>}
+            </div>
+            <div>
+              <h1 className="text-4xl font-semibold tracking-tight text-[#f8fafc]">{activeProject ? activeProject.name : 'Nenhum projeto selecionado'}</h1>
+              <p className="max-w-2xl text-sm text-white/50 mt-3">
+                {activeProject
+                  ? 'Painel profissional de métricas, ações e histórico para projetos baseados em templates prontos.'
+                  : 'Abra um projeto para ativar a dashboard e visualizar todas as estatísticas.'}
+              </p>
+            </div>
           </div>
-        ) : (
-          <p className="text-sm text-white/50">Selecione um projeto em Meus Projetos para acessar o painel de interatividade específico.</p>
-        )}
+
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            <div className="rounded-3xl border border-white/[0.08] bg-[#0b1220] p-4 text-center">
+              <p className="text-xs uppercase tracking-[0.24em] text-white/40">Conexões</p>
+              <p className="mt-3 text-3xl font-semibold text-[#f8fafc]">5</p>
+              <p className="mt-2 text-sm text-white/50">Dispositivos online</p>
+            </div>
+            <div className="rounded-3xl border border-white/[0.08] bg-[#0b1220] p-4 text-center">
+              <p className="text-xs uppercase tracking-[0.24em] text-white/40">Integridade</p>
+              <p className="mt-3 text-3xl font-semibold text-[#f8fafc]">97%</p>
+              <p className="mt-2 text-sm text-white/50">Disponibilidade do sistema</p>
+            </div>
+            <div className="rounded-3xl border border-white/[0.08] bg-[#0b1220] p-4 text-center">
+              <p className="text-xs uppercase tracking-[0.24em] text-white/40">Alertas</p>
+              <p className="mt-3 text-3xl font-semibold text-[#f8fafc]">{alerts.length}</p>
+              <p className="mt-2 text-sm text-white/50">Eventos ativos</p>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {templateDashboard && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-          <div className="panel p-5 lg:col-span-3">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div className="grid gap-4 xl:grid-cols-[2fr_1fr] xl:items-start">
+        <div className="grid gap-4">
+          <div className="rounded-[28px] border border-white/[0.08] bg-[#0f1724] p-6">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-xs text-white/40 uppercase tracking-[0.2em]">Dashboard de Template</p>
-                <h2 className="text-xl text-[#f0f0f0] font-semibold mt-2">{templateDashboard.label}</h2>
-                <p className="text-sm text-white/50 mt-2">{templateDashboard.interaction}</p>
+                <p className="text-sm uppercase tracking-[0.24em] text-white/40">Visão geral dos sensores</p>
+                <h2 className="mt-3 text-2xl font-semibold text-[#f8fafc]">Dados em tempo real</h2>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {templateDashboard.actions.map((action) => (
+              <div className="rounded-2xl bg-white/5 px-4 py-2 text-sm text-white/60">Atualizando continuamente</div>
+            </div>
+            <div className="mt-6 grid gap-4 lg:grid-cols-2">
+              <div className="rounded-3xl border border-white/[0.06] bg-[#111827]/90 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-white/40">Temperatura</p>
+                    <p className="mt-2 text-3xl font-semibold text-[#f8fafc]">{currentTemp.toFixed(1)}°C</p>
+                  </div>
+                  <Thermometer className="h-7 w-7 text-[#3b82f6]" />
+                </div>
+                <div className="h-[260px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={tempHistory} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="tempGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.24} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                      <XAxis dataKey="time" tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }} tickLine={false} axisLine={false} width={30} />
+                      <Tooltip contentStyle={{ background: '#0f1724', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14 }} />
+                      <Area type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} fill="url(#tempGradient)" dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+              <div className="rounded-3xl border border-white/[0.06] bg-[#111827]/90 p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-white/40">Umidade</p>
+                    <p className="mt-2 text-3xl font-semibold text-[#f8fafc]">{currentHumidity.toFixed(0)}%</p>
+                  </div>
+                  <Droplet className="h-7 w-7 text-[#10b981]" />
+                </div>
+                <div className="h-[260px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={humidityHistory} margin={{ top: 0, right: 0, left: -10, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="humidityGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.24} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                      <XAxis dataKey="time" tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }} tickLine={false} axisLine={false} />
+                      <YAxis tick={{ fill: 'rgba(255,255,255,0.35)', fontSize: 10 }} tickLine={false} axisLine={false} width={30} />
+                      <Tooltip contentStyle={{ background: '#0f1724', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 14 }} />
+                      <Area type="monotone" dataKey="value" stroke="#10b981" strokeWidth={2} fill="url(#humidityGradient)" dot={false} />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-[28px] border border-white/[0.08] bg-[#0f1724] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-white/40">Interações</p>
+                <h2 className="text-2xl font-semibold text-[#f8fafc]">Ações rápidas</h2>
+              </div>
+              <Sparkles className="h-6 w-6 text-[#facc15]" />
+            </div>
+            <div className="grid gap-3">
+              {actionOptions.length > 0 ? (
+                actionOptions.map((action) => (
                   <button
                     key={action}
-                    onClick={() => handleTemplateAction(action)}
-                    className="btn-secondary text-sm px-4 py-2"
+                    onClick={() => {
+                      setSelectedAction(action);
+                      setInteractionHistory((prev) => [
+                        `${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} — ${action}`,
+                        ...prev,
+                      ].slice(0, 5));
+                    }}
+                    className="rounded-3xl border border-white/[0.08] bg-white/5 px-5 py-4 text-left text-sm text-white transition hover:border-[#00d4ff] hover:bg-[#00d4ff]/10"
                   >
                     {action}
                   </button>
+                ))
+              ) : (
+                <p className="text-sm text-white/50">Selecione um projeto com template 2D para ativar as ações.</p>
+              )}
+            </div>
+            <div className="mt-6 rounded-3xl border border-white/[0.08] bg-[#111827]/90 p-4">
+              <p className="text-xs text-white/40 uppercase tracking-[0.24em]">Última ação</p>
+              <p className="mt-3 text-lg font-semibold text-[#f8fafc]">{selectedAction || 'Nenhuma ação registrada'}</p>
+              <p className="text-sm text-white/50 mt-2">A interação fica registrada no histórico para consulta imediata.</p>
+            </div>
+          </div>
+        </div>
+        <aside className="grid gap-4">
+          <div className="rounded-[28px] border border-white/[0.08] bg-[#0f1724] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-white/40">Resumo do template</p>
+                <h2 className="text-2xl font-semibold text-[#f8fafc]">Métricas chave</h2>
+              </div>
+              <TrendUp className="h-6 w-6 text-[#34d399]" />
+            </div>
+            {templateConfig ? (
+              <div className="grid gap-3">
+                {templateConfig.stats.map((stat) => (
+                  <div key={stat.title} className="rounded-3xl border border-white/[0.06] bg-[#111827]/80 p-4">
+                    <p className="text-sm text-white/40">{stat.title}</p>
+                    <p className="mt-2 text-2xl font-semibold text-[#f8fafc]">{stat.value}</p>
+                  </div>
                 ))}
               </div>
+            ) : (
+              <p className="text-sm text-white/50">Nenhum template selecionado. Abra um projeto para ver métricas específicas.</p>
+            )}
+          </div>
+          <div className="rounded-[28px] border border-white/[0.08] bg-[#0f1724] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-white/40">Alertas</p>
+                <h2 className="text-2xl font-semibold text-[#f8fafc]">Monitoramento</h2>
+              </div>
+              <Bell className="h-6 w-6 text-[#f59e0b]" />
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
-              {templateDashboard.stats.map((stat) => (
-                <div key={stat.title} className="rounded-2xl border border-white/[0.08] bg-white/5 p-4">
-                  <p className="text-[10px] text-white/40 uppercase tracking-[0.2em] mb-2">{stat.title}</p>
-                  <p className="text-2xl text-[#f0f0f0] font-semibold">{stat.value}</p>
+            <div className="space-y-3">
+              {alerts.map((alert) => (
+                <div key={alert.id} className="rounded-3xl border border-white/[0.06] bg-[#111827]/80 p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <p className="text-sm font-semibold text-[#f8fafc]">{alert.severity === 'warning' ? 'Aviso' : 'Info'}</p>
+                    <span className="text-[11px] text-white/40">{alert.time}</span>
+                  </div>
+                  <p className="text-sm text-white/60">{alert.message}</p>
                 </div>
               ))}
             </div>
-            {selectedAction && (
-              <div className="mt-4 rounded-2xl border border-white/[0.08] bg-white/5 p-4">
-                <p className="text-sm text-[#f0f0f0]">Última ação:</p>
-                <p className="text-base text-[#00d4ff] mt-1">{selectedAction}</p>
+          </div>
+          <div className="rounded-[28px] border border-white/[0.08] bg-[#0f1724] p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-sm uppercase tracking-[0.24em] text-white/40">Logs recentes</p>
+                <h2 className="text-2xl font-semibold text-[#f8fafc]">Atividade</h2>
               </div>
-            )}
-            {interactionHistory.length > 0 && (
-              <div className="mt-4 text-sm text-white/50">
-                <p className="mb-2 uppercase tracking-[0.2em] text-[10px] text-white/40">Histórico de interação</p>
-                <div className="space-y-1">
-                  {interactionHistory.map((entry, index) => (
-                    <div key={index} className="rounded-xl bg-white/5 p-2 text-xs text-white/60">{entry}</div>
-                  ))}
+              <ListChecks className="h-6 w-6 text-[#60a5fa]" />
+            </div>
+            <div className="space-y-3 max-h-[320px] overflow-y-auto">
+              {filteredLogs.map((log, index) => (
+                <div key={index} className="rounded-3xl border border-white/[0.06] bg-[#111827]/80 p-4">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <span className={`text-[11px] font-semibold uppercase ${
+                      log.level === 'ERROR' ? 'text-[#f87171]' : log.level === 'WARN' ? 'text-[#fbbf24]' : 'text-[#60a5fa]'
+                    }`}>
+                      {log.level}
+                    </span>
+                    <span className="text-[11px] text-white/40">{log.time}</span>
+                  </div>
+                  <p className="text-sm text-white/60">{log.message}</p>
                 </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Device Status */}
-        <div className="panel p-5">
-          <h3 className="text-base text-[#f0f0f0] font-normal mb-4">Status dos Dispositivos</h3>
-          <div className="space-y-3">
-            {devices.map((dev) => (
-              <div key={dev.name} className="flex items-center gap-3">
-                <dev.icon className={`w-4 h-4 ${dev.status === 'online' ? 'text-[#00ff88]' : dev.status === 'simulating' ? 'text-[#00d4ff]' : 'text-white/30'}`} />
-                <span className="text-sm text-[#e1e1e1] flex-1 truncate">{dev.name}</span>
-                <span className={`w-1.5 h-1.5 rounded-full ${dev.status === 'online' ? 'bg-[#00ff88]' : dev.status === 'simulating' ? 'bg-[#00d4ff]' : 'bg-[#ff4444]'}`} />
-                <span className="font-mono-data text-[10px] text-white/40 uppercase">{dev.status}</span>
-                <span className="text-[10px] text-white/30">{dev.lastSeen} ago</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Temperature Chart */}
-        <div className="panel p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base text-[#f0f0f0] font-normal">Temperatura</h3>
-            <span className="font-mono-data text-sm text-[#00d4ff]">{currentTemp.toFixed(1)}C</span>
-          </div>
-          <div className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={tempHistory}>
-                <defs>
-                  <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#0073e6" stopOpacity={0.2} />
-                    <stop offset="100%" stopColor="#0073e6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="rgba(255,255,255,0.03)" />
-                <XAxis dataKey="time" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.3)' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.3)' }} tickLine={false} axisLine={false} domain={['auto', 'auto']} />
-                <Tooltip
-                  contentStyle={{ background: '#121212', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, fontSize: 12 }}
-                  labelStyle={{ color: 'rgba(255,255,255,0.5)' }}
-                />
-                <Area type="monotone" dataKey="value" stroke="#0073e6" fill="url(#tempGrad)" strokeWidth={1.5} dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex justify-between mt-2 text-[10px] text-white/40">
-            <span>Min: {tempHistory.length > 0 ? Math.min(...tempHistory.map((d) => d.value)).toFixed(1) : '22.0'}C</span>
-            <span>Max: {tempHistory.length > 0 ? Math.max(...tempHistory.map((d) => d.value)).toFixed(1) : '28.0'}C</span>
-            <span>Med: {tempHistory.length > 0 ? (tempHistory.reduce((a, b) => a + b.value, 0) / tempHistory.length).toFixed(1) : '24.5'}C</span>
-          </div>
-        </div>
-
-        {/* Humidity Chart */}
-        <div className="panel p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base text-[#f0f0f0] font-normal">Umidade</h3>
-            <span className="font-mono-data text-sm text-[#00d4ff]">{currentHumidity.toFixed(0)}%</span>
-          </div>
-          <div className="h-[200px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={humidityHistory}>
-                <defs>
-                  <linearGradient id="humGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#00d4ff" stopOpacity={0.2} />
-                    <stop offset="100%" stopColor="#00d4ff" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="rgba(255,255,255,0.03)" />
-                <XAxis dataKey="time" tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.3)' }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fontSize: 10, fill: 'rgba(255,255,255,0.3)' }} tickLine={false} axisLine={false} domain={[40, 70]} />
-                <Tooltip
-                  contentStyle={{ background: '#121212', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 6, fontSize: 12 }}
-                  labelStyle={{ color: 'rgba(255,255,255,0.5)' }}
-                />
-                <Area type="monotone" dataKey="value" stroke="#00d4ff" fill="url(#humGrad)" strokeWidth={1.5} dot={false} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex justify-between mt-2 text-[10px] text-white/40">
-            <span>Min: {humidityHistory.length > 0 ? Math.min(...humidityHistory.map((d) => d.value)).toFixed(0) : '45'}%</span>
-            <span>Max: {humidityHistory.length > 0 ? Math.max(...humidityHistory.map((d) => d.value)).toFixed(0) : '68'}%</span>
-            <span>Med: {humidityHistory.length > 0 ? (humidityHistory.reduce((a, b) => a + b.value, 0) / humidityHistory.length).toFixed(0) : '58'}%</span>
-          </div>
-        </div>
-
-        {/* Sensor Readings */}
-        <div className="panel p-5">
-          <h3 className="text-base text-[#f0f0f0] font-normal mb-4">Leituras dos Sensores</h3>
-          <div className="space-y-2 max-h-[280px] overflow-y-auto">
-            {[
-              { name: 'DHT11-Sala', type: 'Temperatura', value: currentTemp, unit: 'C' },
-              { name: 'DHT11-Sala', type: 'Umidade', value: currentHumidity, unit: '%' },
-              { name: 'PIR-01', type: 'Movimento', value: Math.random() > 0.9 ? 1 : 0, unit: 'bool' },
-              { name: 'LDR-01', type: 'Luminosidade', value: Math.max(0, 300 + Math.sin(Date.now() * 0.001) * 200), unit: 'lux' },
-              { name: 'Ultrasonic-01', type: 'Distancia', value: Math.abs(Math.sin(Date.now() * 0.0005) * 150), unit: 'cm' },
-              { name: 'Gas-MQ2', type: 'Gas', value: Math.random() * 100, unit: 'ppm' },
-            ].map((s, i) => (
-              <div key={i} className="flex items-center gap-3 py-1.5 hover:bg-white/[0.02] rounded px-1">
-                <span className="text-sm text-[#e1e1e1] flex-1">{s.name}</span>
-                <span className="text-[10px] text-white/40">{s.type}</span>
-                <span className="font-mono-data text-xs text-[#00d4ff] min-w-[50px] text-right">
-                  {typeof s.value === 'number' ? s.value.toFixed(1) : s.value}
-                </span>
-                <span className="text-[10px] text-white/40 w-6">{s.unit}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* System Logs */}
-        <div className="panel p-5 md:col-span-2">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base text-[#f0f0f0] font-normal">Logs do Sistema</h3>
-            <div className="flex gap-1">
-              {(['ALL', 'INFO', 'WARN', 'ERROR'] as const).map((f) => (
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {(['ALL', 'INFO', 'WARN', 'ERROR'] as const).map((level) => (
                 <button
-                  key={f}
-                  onClick={() => setLogFilter(f)}
-                  className={`text-[10px] px-2 py-1 rounded transition-colors ${
-                    logFilter === f ? 'bg-[#0073e6]/20 text-[#0073e6]' : 'text-white/40 hover:text-white/60'
-                  }`}
+                  key={level}
+                  onClick={() => setLogFilter(level)}
+                  className={`rounded-full px-3 py-2 text-xs transition ${logFilter === level ? 'bg-[#2563eb] text-slate-950' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}
                 >
-                  {f}
+                  {level}
                 </button>
               ))}
             </div>
           </div>
-          <div className="font-mono-data text-[11px] space-y-1 max-h-[200px] overflow-y-auto">
-            {filteredLogs.map((log, i) => (
-              <div key={i} className="flex gap-2">
-                <span className="text-white/30">[{log.time}]</span>
-                <span className={
-                  log.level === 'INFO' ? 'text-[#00d4ff]' :
-                  log.level === 'WARN' ? 'text-[#ffaa00]' :
-                  log.level === 'ERROR' ? 'text-[#ff4444]' : 'text-white/40'
-                }>
-                  [{log.level}]
-                </span>
-                <span className="text-white/60">{log.message}</span>
-              </div>
-            ))}
-            {filteredLogs.length === 0 && <span className="text-white/30">Nenhum log encontrado</span>}
-          </div>
-        </div>
-
-        {/* Alerts */}
-        <div className="panel p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base text-[#f0f0f0] font-normal">Alertas</h3>
-            {alerts.length > 0 && (
-              <span className="w-5 h-5 rounded-full bg-[#ff4444] text-white text-[10px] flex items-center justify-center">{alerts.length}</span>
-            )}
-          </div>
-          {alerts.length > 0 ? (
-            <div className="space-y-3">
-              {alerts.map((alert) => (
-                <div key={alert.id} className="flex items-start gap-2.5">
-                  <AlertTriangle className={`w-4 h-4 mt-0.5 shrink-0 ${alert.severity === 'warning' ? 'text-[#ffaa00]' : 'text-[#00d4ff]'}`} />
-                  <div className="flex-1">
-                    <p className="text-sm text-[#e1e1e1]">{alert.message}</p>
-                    <p className="text-[10px] text-white/40 mt-0.5">{alert.time}</p>
-                  </div>
-                  <button onClick={() => setAlerts((prev) => prev.filter((a) => a.id !== alert.id))} className="btn-ghost p-1 rounded">
-                    <X className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-white/30 text-center py-8">Nenhum alerta ativo</p>
-          )}
-        </div>
-
-        {/* Power Consumption */}
-        <div className="panel p-5">
-          <h3 className="text-base text-[#f0f0f0] font-normal mb-4">Consumo de Energia</h3>
-          <div className="flex items-center gap-4">
-            <div className="w-[140px] h-[140px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={powerData} cx="50%" cy="50%" innerRadius={35} outerRadius={55} paddingAngle={3} dataKey="value">
-                    {powerData.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i]} />
-                    ))}
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="space-y-2 flex-1">
-              <div className="text-center mb-2">
-                <Battery className="w-5 h-5 mx-auto text-[#0073e6] mb-1" />
-                <span className="font-mono-data text-lg text-[#f0f0f0]">12.5W</span>
-              </div>
-              {powerData.map((d, i) => (
-                <div key={d.name} className="flex items-center gap-2 text-xs">
-                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i] }} />
-                  <span className="text-white/50 flex-1">{d.name}</span>
-                  <span className="text-white/70">{d.value}%</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        </aside>
       </div>
     </div>
   );
