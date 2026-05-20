@@ -74,10 +74,10 @@ export default function ProjectsView() {
   const handleOpenProject = (project: typeof projects[0]) => {
     toast.success(`Abrindo: ${project.name}`);
     setActiveProject(project);
-    if (project.template || project.type === 'circuit') {
-      navigate('/dashboard/workspace/circuit');
-    } else {
+    if (project.type === '3d') {
       navigate('/dashboard/workspace/3d');
+    } else {
+      navigate('/dashboard/workspace/circuit');
     }
   };
 

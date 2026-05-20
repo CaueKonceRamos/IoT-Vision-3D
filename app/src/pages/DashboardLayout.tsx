@@ -14,7 +14,6 @@ const navItems = [
     { icon: Home, label: 'Visão Geral', path: '/dashboard', view: 'home' as const },
     { icon: Box, label: '3D View', path: '/dashboard/workspace/3d', view: '3d' as const },
     { icon: Grid3X3, label: '2D View', path: '/dashboard/workspace/circuit', view: 'circuit' as const },
-    { icon: BarChart3, label: 'Dashboard do Projeto', path: '/dashboard/workspace/data', view: 'dashboard' as const },
   ]},
   { section: 'PROJETOS', items: [
     { icon: FolderOpen, label: 'Meus Projetos', path: '/dashboard/projects', view: 'projects' as const },

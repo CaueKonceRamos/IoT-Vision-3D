@@ -96,13 +96,21 @@ export default function DataDashboardView() {
   const currentTemp = tempHistory.length > 0 ? tempHistory[tempHistory.length - 1].value : 24.5;
   const currentHumidity = humidityHistory.length > 0 ? humidityHistory[humidityHistory.length - 1].value : 62;
 
+  const projectTypeLabel = activeProject?.type === '3d' ? 'Projeto 3D' : activeProject?.type === 'circuit' ? 'Projeto 2D' : 'Projeto';
+  const templateLabel = activeProject?.template ? `Template: ${activeProject.template}` : null;
+
   return (
     <div className="p-6 overflow-y-auto">
       <div className="mb-4">
         <h1 className="text-2xl text-[#f0f0f0] font-normal tracking-tight mb-2">
           {activeProject ? `${activeProject.name} — Dashboard` : 'Dashboard do Projeto'}
         </h1>
-        {!activeProject && (
+        {activeProject ? (
+          <div className="text-sm text-white/50 space-y-1">
+            <p>{projectTypeLabel}{templateLabel ? ` · ${templateLabel}` : ''}</p>
+            <p>Resumo de interatividade e dados para o projeto ativo.</p>
+          </div>
+        ) : (
           <p className="text-sm text-white/50">Selecione um projeto em Meus Projetos para acessar o painel de interatividade específico.</p>
         )}
       </div>
