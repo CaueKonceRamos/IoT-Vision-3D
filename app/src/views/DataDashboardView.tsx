@@ -45,7 +45,7 @@ function generateSensorValue(type: string, time: number): number {
 }
 
 export default function DataDashboardView() {
-  const { isSimulating, addSensorData, addLog } = useAppStore();
+  const { isSimulating, addSensorData, addLog, activeProject } = useAppStore();
   const [tempHistory, setTempHistory] = useState<{ time: string; value: number }[]>([]);
   const [humidityHistory, setHumidityHistory] = useState<{ time: string; value: number }[]>([]);
   const [localLogs, setLocalLogs] = useState<LogEntry[]>(initialLogs);
@@ -98,7 +98,14 @@ export default function DataDashboardView() {
 
   return (
     <div className="p-6 overflow-y-auto">
-      <h1 className="text-2xl text-[#f0f0f0] font-normal tracking-tight mb-6">Dashboard</h1>
+      <div className="mb-4">
+        <h1 className="text-2xl text-[#f0f0f0] font-normal tracking-tight mb-2">
+          {activeProject ? `${activeProject.name} — Dashboard` : 'Dashboard do Projeto'}
+        </h1>
+        {!activeProject && (
+          <p className="text-sm text-white/50">Selecione um projeto em Meus Projetos para acessar o painel de interatividade específico.</p>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Device Status */}

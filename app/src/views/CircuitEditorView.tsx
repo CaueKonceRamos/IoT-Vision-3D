@@ -772,6 +772,9 @@ export default function CircuitEditorView() {
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button onClick={handleSaveProject} className="btn-secondary text-xs px-3 py-1.5 rounded">{saveStatus === 'saving' ? 'Salvando...' : 'Salvar 2D'}</button>
+            {activeProject && (
+              <button onClick={() => navigate('/dashboard/workspace/data')} className="btn-secondary text-xs px-3 py-1.5 rounded">Dashboard</button>
+            )}
             <button 
               onClick={addWire} 
               className={`text-xs px-3 py-1.5 rounded transition-colors ${connectingMode ? 'bg-[#ff4444] text-[#0a0a0a] hover:bg-[#ff6666]' : 'btn-secondary'}`}

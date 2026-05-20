@@ -1,6 +1,27 @@
 import { create } from 'zustand';
 import type { ActiveView, Project, ClassItem, SensorData, LogEntry } from '@/types';
 
+const STORAGE_KEY = 'kimi-app-state';
+
+const loadAppState = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : null;
+  } catch {
+    return null;
+  }
+};
+
+const saveAppState = (data: { projects: Project[]; classes: ClassItem[]; activeProject: Project | null }) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // ignore write errors
+  }
+};
+
 interface AppState {
   activeView: ActiveView;
   activeProject: Project | null;
@@ -46,26 +67,43 @@ const defaultClasses: ClassItem[] = [
   },
 ];
 
-export const useAppStore = create<AppState>((set) => ({
-  activeView: 'home',
-  activeProject: null,
-  isSimulating: false,
-  sidebarCollapsed: false,
-  projects: defaultProjects,
-  classes: defaultClasses,
-  sensorData: [],
-  logs: [],
-  setActiveView: (view) => set({ activeView: view }),
-  setActiveProject: (project) => set({ activeProject: project }),
-  toggleSimulation: () => set((s) => ({ isSimulating: !s.isSimulating })),
-  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-  addClass: (cls) => set((s) => ({ classes: [...s.classes, cls] })),
-  addProject: (project) => set((s) => ({ projects: [...s.projects, project] })),
-  updateProject: (project) => set((s) => ({
-    projects: s.projects.some((p) => p.id === project.id)
-      ? s.projects.map((p) => (p.id === project.id ? project : p))
-      : [...s.projects, project],
-  })),
-  addSensorData: (data) => set((s) => ({ sensorData: [...s.sensorData.slice(-100), data] })),
-  addLog: (log) => set((s) => ({ logs: [...s.logs.slice(-99), log] })),
-}));
+export const useAppStore = create<AppState>((set, get) => {
+  const stored = loadAppState();
+  return {
+    activeView: 'home',
+    activeProject: stored?.activeProject ?? null,
+    isSimulating: false,
+    sidebarCollapsed: false,
+    projects: stored?.projects ?? defaultProjects,
+    classes: stored?.classes ?? defaultClasses,
+    sensorData: [],
+    logs: [],
+    setActiveView: (view) => set({ activeView: view }),
+    setActiveProject: (project) => set((s) => {
+      const nextActive = project;
+      saveAppState({ projects: s.projects, classes: s.classes, activeProject: nextActive });
+      return { activeProject: project };
+    }),
+    toggleSimulation: () => set((s) => ({ isSimulating: !s.isSimulating })),
+    toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+    addClass: (cls) => set((s) => {
+      const nextClasses = [...s.classes, cls];
+      saveAppState({ projects: s.projects, classes: nextClasses, activeProject: s.activeProject });
+      return { classes: nextClasses };
+    }),
+    addProject: (project) => set((s) => {
+      const nextProjects = [...s.projects, project];
+      saveAppState({ projects: nextProjects, classes: s.classes, activeProject: s.activeProject });
+      return { projects: nextProjects };
+    }),
+    updateProject: (project) => set((s) => {
+      const nextProjects = s.projects.some((p) => p.id === project.id)
+        ? s.projects.map((p) => (p.id === project.id ? project : p))
+        : [...s.projects, project];
+      saveAppState({ projects: nextProjects, classes: s.classes, activeProject: project });
+      return { projects: nextProjects };
+    }),
+    addSensorData: (data) => set((s) => ({ sensorData: [...s.sensorData.slice(-100), data] })),
+    addLog: (log) => set((s) => ({ logs: [...s.logs.slice(-99), log] })),
+  };
+});

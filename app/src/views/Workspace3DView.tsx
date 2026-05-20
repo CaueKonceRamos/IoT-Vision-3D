@@ -1,8 +1,9 @@
 import { useRef, useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Grid, Environment } from '@react-three/drei';
 import * as THREE from 'three';
-import { Box, RotateCcw, Move, Maximize2 } from 'lucide-react';
+import { Box, RotateCcw, Move, Maximize2, BarChart3 } from 'lucide-react';
 import { useAppStore } from '@/stores/appStore';
 
 interface IoTComponent {
@@ -172,9 +173,10 @@ function Scene3D({
 }
 
 export default function Workspace3DView() {
+  const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [components] = useState<IoTComponent[]>(defaultComponents);
-  const { isSimulating, sensorData } = useAppStore();
+  const { isSimulating, sensorData, activeProject } = useAppStore();
   const [showTimeline, setShowTimeline] = useState(true);
 
   const selected = components.find((c) => c.id === selectedId);
@@ -203,6 +205,11 @@ export default function Workspace3DView() {
           <button className="btn-ghost text-[11px] px-3 py-1.5 rounded">Isometric</button>
           <button className="btn-ghost text-[11px] px-3 py-1.5 rounded">Top</button>
           <button className="btn-ghost text-[11px] px-3 py-1.5 rounded">Front</button>
+          {activeProject && (
+            <button onClick={() => navigate('/dashboard/workspace/data')} className="btn-ghost text-[11px] px-3 py-1.5 rounded">
+              Dashboard
+            </button>
+          )}
         </div>
 
         {/* Timeline */}

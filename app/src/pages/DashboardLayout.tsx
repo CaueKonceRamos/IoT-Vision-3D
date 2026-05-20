@@ -14,7 +14,7 @@ const navItems = [
     { icon: Home, label: 'Visão Geral', path: '/dashboard', view: 'home' as const },
     { icon: Box, label: '3D View', path: '/dashboard/workspace/3d', view: '3d' as const },
     { icon: Grid3X3, label: '2D View', path: '/dashboard/workspace/circuit', view: 'circuit' as const },
-    { icon: BarChart3, label: 'Dashboard', path: '/dashboard/workspace/data', view: 'dashboard' as const },
+    { icon: BarChart3, label: 'Dashboard do Projeto', path: '/dashboard/workspace/data', view: 'dashboard' as const },
   ]},
   { section: 'PROJETOS', items: [
     { icon: FolderOpen, label: 'Meus Projetos', path: '/dashboard/projects', view: 'projects' as const },
@@ -29,7 +29,7 @@ export default function DashboardLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, logout, updateProfile } = useAuthStore();
-  const { activeView, setActiveView, isSimulating, toggleSimulation, sidebarCollapsed, toggleSidebar } = useAppStore();
+  const { activeView, activeProject, setActiveView, isSimulating, toggleSimulation, sidebarCollapsed, toggleSidebar } = useAppStore();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'idle'>('saved');
   const [showProfileModal, setShowProfileModal] = useState(false);
@@ -122,9 +122,20 @@ export default function DashboardLayout() {
               <Menu className="w-5 h-5" />
             </button>
             <div className="text-[13px] text-white/50 truncate">
-              <span>Turma: Eletronica 2025</span>
-              <span className="mx-2 text-white/20">/</span>
-              <span className="text-[#0073e6] cursor-pointer hover:underline">Casa Inteligente</span>
+              {currentPath.includes('/classes') ? (
+                <>
+                  <span>Turmas</span>
+                  <span className="mx-2 text-white/20">/</span>
+                  <span className="text-[#0073e6] cursor-pointer hover:underline">Minhas Turmas</span>
+                </>
+              ) : activeProject ? (
+                <>
+                  <span>Projeto:</span>
+                  <span className="mx-2 text-white/20">{activeProject.name}</span>
+                </>
+              ) : (
+                <span>Workspace</span>
+              )}
             </div>
           </div>
 
@@ -138,6 +149,12 @@ export default function DashboardLayout() {
                   </span>
                   {saveStatus === 'saved' && <span className="w-1.5 h-1.5 rounded-full bg-[#00ff88]" />}
                 </button>
+                {activeProject && (
+                  <button onClick={() => handleNav('/dashboard/workspace/data', 'dashboard')} className="btn-ghost flex items-center gap-1.5 px-3 py-1.5 rounded text-xs">
+                    <BarChart3 className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Dashboard do Projeto</span>
+                  </button>
+                )}
                 <button className="btn-ghost flex items-center gap-1.5 px-3 py-1.5 rounded text-xs">
                   <Share2 className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Compartilhar</span>
