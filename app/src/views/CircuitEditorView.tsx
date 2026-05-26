@@ -103,7 +103,7 @@ const templateEditorData: Record<TemplateKey, { title: string; description: stri
     tutorial: [
       { title: 'Objetivo', description: 'Este circuito constrói uma casa inteligente com ESP32, sensor PIR para detecção de movimento, um relé para controlar carga e um LED de status.' },
       { title: 'Componentes', description: 'O ESP32 é o cérebro. O PIR detecta presença, o relé aciona cargas e o LED indica quando o sistema está ativo. O botão serve como entrada manual.' },
-      { title: 'Conexões', description: 'O PIR envia sinal de presença ao ESP32. O ESP32 aciona o relé quando detecta movimento e também controla o LED. O botão é lido como entrada digital para testes.' },
+      { title: 'Vista Esquemática', description: 'O PIR envia sinal de presença ao ESP32. O ESP32 aciona o relé quando detecta movimento e também controla o LED. O botão é lido como entrada digital para testes.' },
       { title: 'Uso real', description: 'Agora você pode ajustar o circuito ou adicionar sensores extras. No mundo real, o relé poderia ligar iluminação ou alarme quando o PIR detectar movimento.' },
     ],
   },
@@ -124,7 +124,7 @@ const templateEditorData: Record<TemplateKey, { title: string; description: stri
     tutorial: [
       { title: 'Objetivo', description: 'Este circuito cria uma estação meteorológica que lê temperatura e umidade e exibe os dados num display OLED.' },
       { title: 'Componentes', description: 'O DHT11 mede temperatura e umidade. O ESP32 processa esses dados e o OLED mostra as leituras. O módulo WiFi pode transmitir os dados para a nuvem.' },
-      { title: 'Conexões', description: 'O DHT11 está conectado ao ESP32 para leitura de sensores. O ESP32 se comunica com o display OLED e com o módulo WiFi para enviar os dados.' },
+      { title: 'Vista Esquemática', description: 'O DHT11 está conectado ao ESP32 para leitura de sensores. O ESP32 se comunica com o display OLED e com o módulo WiFi para enviar os dados.' },
       { title: 'Uso real', description: 'No mundo real, essa estação pode monitorar o clima local e enviar alertas ou atualizar painéis online automaticamente.' },
     ],
   },
@@ -147,7 +147,7 @@ const templateEditorData: Record<TemplateKey, { title: string; description: stri
     tutorial: [
       { title: 'Objetivo', description: 'Este circuito de irrigação inteligente usa um sensor de umidade para ligar uma bomba através de um relé quando o solo está seco.' },
       { title: 'Componentes', description: 'O sensor de umidade é lido pelo ESP32. O relé controla a bomba/motor. O LED indica quando a irrigação está ligada.' },
-      { title: 'Conexões', description: 'O sensor de umidade alimenta o ESP32 com dados do solo. Quando o solo está seco, o ESP32 ativa o relé e a bomba começa a irrigar.' },
+      { title: 'Vista Esquemática', description: 'O sensor de umidade alimenta o ESP32 com dados do solo. Quando o solo está seco, o ESP32 ativa o relé e a bomba começa a irrigar.' },
       { title: 'Uso real', description: 'Em um sistema real, isso protege plantas de seca e automatiza a irrigação, economizando água e tempo.' },
     ],
   },
@@ -632,14 +632,49 @@ export default function CircuitEditorView() {
 
   const escapePdfString = (text: string) => text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 
-  const createPdfBytes = (lines: string[]) => {
-    const contentLines = lines.map((line, index) => {
-      const escaped = escapePdfString(line);
-      const separator = index < lines.length - 1 ? '0 -14 Td\n' : '';
-      return `(${escaped}) Tj\n${separator}`;
-    }).join('');
+  const createSchematicPdfBytes = (projectTitle: string, components: CircuitComponent[], wires: Wire[]) => {
+    const dateLine = new Intl.DateTimeFormat('pt-BR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(new Date());
 
-    const content = `BT /F1 10 Tf 40 760 Td\n${contentLines}ET`;
+    const lines = [
+      { text: 'VISTA ESQUEMÁTICA DO PROJETO', size: 18, leading: -28 },
+      { text: projectTitle, size: 12, leading: -22 },
+      { text: `Gerado em: ${dateLine}`, size: 10, leading: -24 },
+      { text: `Componentes: ${components.length}   •   Conexões: ${wires.length}`, size: 10, leading: -22 },
+      { text: '────────────────────────────────────────────────────', size: 10, leading: -26 },
+      { text: 'Componentes', size: 12, leading: -20 },
+      ...components.map((component) => ({ text: `• ${component.label} (${component.type}) — posição ${component.x}, ${component.y}`, size: 9, leading: -18 })),
+      { text: '', size: 9, leading: -18 },
+      { text: 'Vista Esquemática', size: 12, leading: -20 },
+      ...wires.map((wire) => {
+        const from = components.find((component) => component.id === wire.from);
+        const to = components.find((component) => component.id === wire.to);
+        return {
+          text: `• ${from?.label || wire.from}${wire.fromPin} → ${to?.label || wire.to}${wire.toPin}`,
+          size: 9,
+          leading: -18,
+        };
+      }),
+      { text: '', size: 9, leading: -22 },
+      { text: 'Documento gerado automaticamente para visualização profissional de topologia e conexões.', size: 9, leading: 0 },
+    ];
+
+    const contentCommands = ['BT', '40 760 Td'];
+    lines.forEach((line, idx) => {
+      contentCommands.push(`/F1 ${line.size} Tf`);
+      contentCommands.push(`(${escapePdfString(line.text)}) Tj`);
+      if (idx < lines.length - 1) {
+        contentCommands.push(`0 ${line.leading} Td`);
+      }
+    });
+    contentCommands.push('ET');
+
+    const content = contentCommands.join('\n');
     const encoder = new TextEncoder();
     const objects = [
       `1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`,
@@ -659,34 +694,19 @@ export default function CircuitEditorView() {
 
     const xref = `xref\n0 ${objects.length + 1}\n${xrefEntries.join('')}`;
     const trailer = `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${offset}\n%%EOF`;
-    const pdfBytes = new Uint8Array([
+    return new Uint8Array([
       ...encoder.encode('%PDF-1.2\n'),
       ...encoder.encode(body),
       ...encoder.encode(xref),
       ...encoder.encode(trailer),
     ]);
-    return pdfBytes;
   };
 
-  const downloadHistoryPdf = () => {
-    const lines = [
-      'Voltix - Historico do Projeto 2D',
-      `Componentes: ${components.length}`,
-      `Conexoes: ${wires.length}`,
-      '',
-      'Componentes:',
-      ...components.map((comp) => `${comp.label} (${comp.type}) - x:${comp.x} y:${comp.y}`),
-      '',
-      'Conexoes:',
-      ...wires.map((wire) => {
-        const from = components.find((component) => component.id === wire.from);
-        const to = components.find((component) => component.id === wire.to);
-        return `${from?.label || wire.from}(${wire.fromPin}) -> ${to?.label || wire.to}(${wire.toPin})`;
-      }),
-    ];
-    const pdfBytes = createPdfBytes(lines);
+  const downloadSchematicPdf = () => {
+    const projectTitle = activeProject?.name ?? 'Projeto Esquemático';
+    const pdfBytes = createSchematicPdfBytes(projectTitle, components, wires);
     const user = auth.user?.name || 'usuario';
-    const filename = `${user}_${formatDateForFilename(new Date())}.pdf`;
+    const filename = `${user}_${formatDateForFilename(new Date())}_vista_esquematica.pdf`;
     downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), filename);
     toast.success(`${filename} criado!`);
   };
@@ -898,8 +918,8 @@ export default function CircuitEditorView() {
                 <button onClick={() => setShowShareModal(false)} className="text-sm text-white/50">Fechar</button>
               </div>
               <div className="grid gap-2">
-                <button onClick={() => { saveDiagram(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><Image className="w-4 h-4" /> Exportar Diagrama (PNG)</button>
-                <button onClick={() => { downloadHistoryPdf(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><FileText className="w-4 h-4" /> Gerar Histórico (PDF)</button>
+                <button onClick={() => { saveDiagram(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><Image className="w-4 h-4" /> Exportar Vista Esquemática (PNG)</button>
+                <button onClick={() => { downloadSchematicPdf(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><FileText className="w-4 h-4" /> Gerar Vista Esquemática (PDF)</button>
                 <button onClick={() => { inviteUser(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><AtSign className="w-4 h-4" /> Convidar por @</button>
                 <button onClick={() => { makeCopy(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><Copy className="w-4 h-4" /> Fazer Cópia</button>
                 <button onClick={() => { linkSubject(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><Download className="w-4 h-4" /> Vincular à Matéria</button>
@@ -945,7 +965,7 @@ export default function CircuitEditorView() {
                   </div>
                   <div className="rounded-3xl bg-[#0f172a] p-3">
                     <div className="flex items-center justify-between text-sm text-white/60">
-                      <span className="text-xs">Conexões</span>
+                      <span className="text-xs">Vista Esquemática</span>
                       <span className="text-[#00ff88] font-semibold">{selectedConnections.length}</span>
                     </div>
                   </div>
@@ -1008,7 +1028,7 @@ export default function CircuitEditorView() {
             <div>
               <div className="text-[12px] font-semibold">Painel 2D</div>
               <div className="text-[11px] text-white/50">Componentes: {components.length}</div>
-              <div className="text-[11px] text-white/50">Conexões: {wires.length}</div>
+              <div className="text-[11px] text-white/50">Vista Esquemática: {wires.length}</div>
             </div>
             <div className="flex flex-col gap-1">
               <button onClick={() => setZoom(1)} className="btn-ghost p-1 rounded text-[11px]">Reset</button>
