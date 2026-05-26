@@ -744,7 +744,7 @@ export default function CircuitEditorView() {
 
   const escapePdfString = (text: string) => text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
 
-  const createSchematicPdfBytes = (projectTitle: string, components: CircuitComponent[], wires: Wire[]) => {
+  const createProjectPdfBytes = (projectTitle: string, projectDescription: string, components: CircuitComponent[], wires: Wire[]) => {
     const dateLine = new Intl.DateTimeFormat('pt-BR', {
       day: '2-digit',
       month: '2-digit',
@@ -754,19 +754,26 @@ export default function CircuitEditorView() {
     }).format(new Date());
 
     const lines = [
-      'VISTA ESQUEMÁTICA DE CONEXÕES',
+      'RESUMO DO PROJETO',
       projectTitle,
+      projectDescription,
+      '',
       `Gerado em: ${dateLine}`,
+      `Tipo de projeto: ${activeProject?.type === '3d' ? '3D' : 'Circuito'}`,
+      `Template: ${activeProject?.template ?? 'Não selecionado'}`,
+      `Proprietário: ${activeProject?.owner ?? 'Desconhecido'}`,
       '',
-      `Componentes: ${components.length}`,
-      `Conexões: ${wires.length}`,
+      `Componentes em uso (${components.length}):`,
+      ...components.map((component) => `- ${component.label} (${component.type})`),
       '',
-      'Conexões',
+      `Conexões (${wires.length}):`,
       ...wires.map((wire) => {
         const from = components.find((component) => component.id === wire.from);
         const to = components.find((component) => component.id === wire.to);
-        return `${from?.label || wire.from}${wire.fromPin} → ${to?.label || wire.to}${wire.toPin}`;
+        return `- ${from?.label || wire.from}${wire.fromPin} → ${to?.label || wire.to}${wire.toPin}`;
       }),
+      '',
+      'Este documento resume o estado do projeto e as conexões entre seus componentes.',
     ];
 
     const contentLines = ['BT', '/F1 18 Tf', '40 770 Td'];
@@ -808,11 +815,12 @@ export default function CircuitEditorView() {
     ]);
   };
 
-  const downloadSchematicPdf = () => {
-    const projectTitle = activeProject?.name ?? 'Projeto Esquemática';
-    const pdfBytes = createSchematicPdfBytes(projectTitle, components, wires);
+  const downloadProjectPdf = () => {
+    const projectTitle = activeProject?.name ?? 'Resumo do Projeto';
+    const projectDescription = templateEditorData[activeProject?.template as TemplateKey]?.description ?? 'Resumo gerado a partir das conexões e componentes atuais do projeto.';
+    const pdfBytes = createProjectPdfBytes(projectTitle, projectDescription, components, wires);
     const user = auth.user?.name || 'usuario';
-    const filename = `${user}_${formatDateForFilename(new Date())}_vista_esquematica.pdf`;
+    const filename = `${user}_${formatDateForFilename(new Date())}_resumo_projeto.pdf`;
     downloadBlob(new Blob([pdfBytes], { type: 'application/pdf' }), filename);
     toast.success(`${filename} criado!`);
   };
@@ -1025,7 +1033,7 @@ export default function CircuitEditorView() {
               </div>
               <div className="grid gap-2">
                 <button onClick={() => { saveDiagram(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><Image className="w-4 h-4" /> Exportar Vista Esquemática (PNG)</button>
-                <button onClick={() => { downloadSchematicPdf(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><FileText className="w-4 h-4" /> Gerar Vista Esquemática (PDF)</button>
+                <button onClick={() => { downloadProjectPdf(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><FileText className="w-4 h-4" /> Gerar PDF do Projeto</button>
                 <button onClick={() => { inviteUser(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><AtSign className="w-4 h-4" /> Convidar por @</button>
                 <button onClick={() => { makeCopy(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><Copy className="w-4 h-4" /> Fazer Cópia</button>
                 <button onClick={() => { linkSubject(); setShowShareModal(false); }} className="w-full btn-secondary py-2 flex items-center gap-2"><Download className="w-4 h-4" /> Vincular à Matéria</button>
