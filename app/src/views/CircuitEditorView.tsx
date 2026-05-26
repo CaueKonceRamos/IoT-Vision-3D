@@ -646,14 +646,6 @@ export default function CircuitEditorView() {
     }
     ctx.restore();
 
-    const drawLabel = (text: string, x: number, y: number) => {
-      ctx.fillStyle = '#f8fafc';
-      ctx.font = '11px Inter, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(text, x, y);
-    };
-
     wires.forEach((wire) => {
       const fromComp = components.find((c) => c.id === wire.from);
       const toComp = components.find((c) => c.id === wire.to);
