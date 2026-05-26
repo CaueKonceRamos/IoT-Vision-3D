@@ -617,13 +617,133 @@ export default function CircuitEditorView() {
     }, 800);
   };
 
+  const renderSchematicPreview = (canvas: HTMLCanvasElement) => {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return false;
+
+    const w = canvas.width;
+    const h = canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#0d1117';
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth = 1;
+    const gridSize = 20;
+    for (let x = 0; x < w; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    for (let y = 0; y < h; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    const drawLabel = (text: string, x: number, y: number) => {
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '11px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(text, x, y);
+    };
+
+    wires.forEach((wire) => {
+      const fromComp = components.find((c) => c.id === wire.from);
+      const toComp = components.find((c) => c.id === wire.to);
+      if (!fromComp || !toComp) return;
+      const fromPos = getPinCoords(fromComp, wire.fromPin);
+      const toPos = getPinCoords(toComp, wire.toPin);
+
+      ctx.strokeStyle = wire.color;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(fromPos.x, fromPos.y);
+      const midX = (fromPos.x + toPos.x) / 2;
+      ctx.lineTo(midX, fromPos.y);
+      ctx.lineTo(midX, toPos.y);
+      ctx.lineTo(toPos.x, toPos.y);
+      ctx.stroke();
+
+      const labelX = midX;
+      const labelY = (fromPos.y + toPos.y) / 2;
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '12px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      const fromLabel = fromComp.label || wire.from;
+      const toLabel = toComp.label || wire.to;
+      ctx.fillText(`${fromLabel}${wire.fromPin} → ${toLabel}${wire.toPin}`, labelX, labelY - 8);
+    });
+
+    components.forEach((comp) => {
+      const size = comp.type === 'arduino' || comp.type === 'esp32' || comp.type === 'raspberry' ? 60 : 40;
+      ctx.fillStyle = '#111827';
+      ctx.strokeStyle = '#ffffff20';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(comp.x - size / 2, comp.y - size / 2, size, size, 10);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = comp.color;
+      ctx.globalAlpha = 0.2;
+      ctx.fillRect(comp.x - size / 2 + 4, comp.y - size / 2 + 4, size - 8, 6);
+      ctx.globalAlpha = 1;
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '12px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(comp.label, comp.x, comp.y + size / 2 + 16);
+    });
+
+    const legendX = w - 260;
+    const legendY = 40;
+    const legendLines = [
+      'Legenda de conexões',
+      '• + : saída / positivo',
+      '• - : entrada / negativo',
+      '• Texto aponta relacionamento entre componentes',
+      `• Total de componentes: ${components.length}`,
+      `• Total de conexões: ${wires.length}`,
+    ];
+
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    ctx.fillRect(legendX - 16, legendY - 16, 240, 24 + legendLines.length * 20);
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(legendX - 16, legendY - 16, 240, 24 + legendLines.length * 20);
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '12px Inter, sans-serif';
+    ctx.textAlign = 'left';
+    legendLines.forEach((line, index) => {
+      ctx.fillText(line, legendX, legendY + index * 20);
+    });
+
+    return true;
+  };
+
   const saveDiagram = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    canvas.toBlob((blob) => {
+
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = canvas.width;
+    exportCanvas.height = canvas.height;
+
+    if (!renderSchematicPreview(exportCanvas)) return;
+
+    exportCanvas.toBlob((blob) => {
       if (blob) {
         const user = auth.user?.name || 'usuario';
-        const filename = `${user}_${formatDateForFilename(new Date())}.png`;
+        const filename = `${user}_${formatDateForFilename(new Date())}_vista_esquematica.png`;
         downloadBlob(blob, filename);
         toast.success(`${filename} salvo!`);
       }
@@ -642,39 +762,33 @@ export default function CircuitEditorView() {
     }).format(new Date());
 
     const lines = [
-      { text: 'VISTA ESQUEMÁTICA DO PROJETO', size: 18, leading: -28 },
-      { text: projectTitle, size: 12, leading: -22 },
-      { text: `Gerado em: ${dateLine}`, size: 10, leading: -24 },
-      { text: `Componentes: ${components.length}   •   Conexões: ${wires.length}`, size: 10, leading: -22 },
-      { text: '────────────────────────────────────────────────────', size: 10, leading: -26 },
-      { text: 'Componentes', size: 12, leading: -20 },
-      ...components.map((component) => ({ text: `• ${component.label} (${component.type}) — posição ${component.x}, ${component.y}`, size: 9, leading: -18 })),
-      { text: '', size: 9, leading: -18 },
-      { text: 'Vista Esquemática', size: 12, leading: -20 },
+      'VISTA ESQUEMÁTICA DE CONEXÕES',
+      projectTitle,
+      `Gerado em: ${dateLine}`,
+      '',
+      `Componentes: ${components.length}`,
+      `Conexões: ${wires.length}`,
+      '',
+      'Conexões',
       ...wires.map((wire) => {
         const from = components.find((component) => component.id === wire.from);
         const to = components.find((component) => component.id === wire.to);
-        return {
-          text: `• ${from?.label || wire.from}${wire.fromPin} → ${to?.label || wire.to}${wire.toPin}`,
-          size: 9,
-          leading: -18,
-        };
+        return `${from?.label || wire.from}${wire.fromPin} → ${to?.label || wire.to}${wire.toPin}`;
       }),
-      { text: '', size: 9, leading: -22 },
-      { text: 'Documento gerado automaticamente para visualização profissional de topologia e conexões.', size: 9, leading: 0 },
     ];
 
-    const contentCommands = ['BT', '40 760 Td'];
+    const contentLines = ['BT', '/F1 18 Tf', '40 770 Td'];
     lines.forEach((line, idx) => {
-      contentCommands.push(`/F1 ${line.size} Tf`);
-      contentCommands.push(`(${escapePdfString(line.text)}) Tj`);
-      if (idx < lines.length - 1) {
-        contentCommands.push(`0 ${line.leading} Td`);
+      const fontSize = idx === 0 ? 18 : idx === 1 ? 14 : 10;
+      if (idx > 0) {
+        contentLines.push('0 -18 Td');
       }
+      contentLines.push(`/${'F1'} ${fontSize} Tf`);
+      contentLines.push(`(${escapePdfString(line)}) Tj`);
     });
-    contentCommands.push('ET');
+    contentLines.push('ET');
 
-    const content = contentCommands.join('\n');
+    const content = contentLines.join('\n');
     const encoder = new TextEncoder();
     const objects = [
       `1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n`,
@@ -703,7 +817,7 @@ export default function CircuitEditorView() {
   };
 
   const downloadSchematicPdf = () => {
-    const projectTitle = activeProject?.name ?? 'Projeto Esquemático';
+    const projectTitle = activeProject?.name ?? 'Projeto Esquemática';
     const pdfBytes = createSchematicPdfBytes(projectTitle, components, wires);
     const user = auth.user?.name || 'usuario';
     const filename = `${user}_${formatDateForFilename(new Date())}_vista_esquematica.pdf`;
